@@ -22,8 +22,8 @@ jobs:
     name: Policy checks (holidays · cert chain · generated assets)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -61,9 +61,9 @@ jobs:
     name: Native unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "20"
 
@@ -90,12 +90,12 @@ jobs:
           - name: "PSRAM disabled · 8M partition"
             board_options: "PSRAM=disabled,PartitionScheme=default_8MB"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: arduino/setup-arduino-cli@v2
+      - uses: arduino/setup-arduino-cli@v2.0.0
 
       - name: 缓存 core 与库
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.arduino15
@@ -121,7 +121,7 @@ jobs:
             "${SKETCH_DIR}"
 
       - name: 上传固件
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: firmware-${{ strategy.job-index }}
           path: firmware/DeepSeekWhale/build/**/*.bin
