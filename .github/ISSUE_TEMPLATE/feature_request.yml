@@ -1,0 +1,45 @@
+name: 功能建议
+description: 想要新功能 / 想移植更多上游能力
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你想解决什么
+      description: 描述场景，而不是直接给方案（方案我们可以一起定）
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 属于哪一块
+      options:
+        - 记账 / 余额口径
+        - 峰谷定价与倒计时
+        - 界面 / 交互（屏幕、按键）
+        - 网络（WiFi、接口、多厂商）
+        - 存储（SD、账本、配置）
+        - 音效
+        - 工具链 / CI / 文档
+        - 其它
+    validations:
+      required: true
+
+  - type: textarea
+    id: upstream
+    attributes:
+      label: 上游有对应功能吗
+      description: |
+        上游仓库 https://github.com/MeteorNOX/DeepSeek-Balance-Whale-Widget
+        如果有对应功能，请贴一下 README 里的原文或链接——移植时以它为准。
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternative
+    attributes:
+      label: 你考虑过的替代方案
+    validations:
+      required: false

@@ -1,0 +1,106 @@
+<div align="center">
+
+# DeepSeek Whale · M5Stack Cardputer ADV
+
+**The DSH balance whale widget, ported to a handheld.**
+
+<img src="docs/images/whale_96.png" width="160" alt="whale">
+
+[![CI](https://github.com/seaison/DeepSeek-Whale-Cardputer/actions/workflows/ci.yml/badge.svg)](https://github.com/seaison/DeepSeek-Whale-Cardputer/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+<sub>中文文档见 [README.md](README.md) · Chinese docs: [README.md](README.md)</sub>
+
+</div>
+
+---
+
+## What it is
+
+[DeepSeek-Balance-Whale-Widget](https://github.com/MeteorNOX/DeepSeek-Balance-Whale-Widget) is a
+DSH (DeepSeek Harness) web plugin that sits in the bottom-right corner of the UI and shows your
+DeepSeek API balance, today's spend and the peak/off-peak pricing window.
+
+This project ports it to **standalone firmware for the M5Stack Cardputer ADV** — no PC, no DSH,
+just power on and read your balance. The accounting core, peak-hour rules and price table follow
+the upstream implementation field by field (fixed-point money, Beijing-time day bucketing,
+weekend/holiday valley pricing).
+
+## Features
+
+| Feature | Notes |
+|---|---|
+| 💰 **Balance** | `GET https://api.deepseek.com/user/balance` — total, granted and topped-up balance; auto refresh every 60 s (configurable 15–900 s), plus manual refresh |
+| 📊 **Today's spend** | Balance-observation accounting: decreases accumulate as spend, increases are recorded separately as top-ups. `1e-8` CNY fixed-point math, bucketed by Beijing date |
+| ⛰️ **Peak / off-peak** | Weekdays 09:00–12:00 and 14:00–18:00 are peak (2× price); weekends and Chinese public holidays are all off-peak. The main screen shows the current tier and a countdown to the next switch |
+| 🐋 **Whale bubbles** | Press the whale / `ENTER` to cycle: balance → today → price tier → random line. Queue resets after 30 s idle; auto-close is configurable |
+| ⌨️ **Keyboard menu** | Refresh · Bubble · Ledger · Network · Settings · About · Reload config · Reboot |
+| 📒 **Ledger** | Per-day observed spend in `/dswhale/ledger.json`, written atomically, **bucketed per API-key fingerprint** (switching keys never loses history) |
+| 🔊 **Sound** | Runtime-synthesized tones (no third-party audio assets are bundled); drop a wav on the SD card to override |
+| 🗂️ **Config** | `/dswhale/config.json` on SD, falling back to NVS when no card is inserted |
+| 🔐 **TLS** | DigiCert Global Root G2 pinned for `api.deepseek.com` (can be disabled for MITM proxies) |
+
+## Requirements
+
+- **M5Stack Cardputer ADV** (ESP32-S3, 240×135 IPS, TCA8418 keyboard, 8 MB PSRAM)
+- Arduino IDE 2.x or arduino-cli, **arduino-esp32 core 3.3.x**
+- Libraries: `M5Cardputer ≥ 1.1.1`, `M5Unified ≥ 0.2.25`, `M5GFX ≥ 0.2.32`, `ArduinoJson ≥ 7`
+- A microSD card (optional, strongly recommended)
+
+## Quick start
+
+Board settings (Arduino IDE → Tools):
+
+| Option | Value |
+|---|---|
+| Board | **M5Cardputer** |
+| PSRAM | **QSPI PSRAM** |
+| Partition Scheme | **8M with spiffs (3MB APP/1.5MB SPIFFS)** ⚠️ required — the firmware is ~1.39 MB |
+| USB CDC On Boot | Enabled |
+
+```bash
+arduino-cli compile --fqbn "esp32:esp32:m5stack_cardputer:PSRAM=enabled,PartitionScheme=default_8MB" DeepSeekWhale
+arduino-cli upload  --fqbn "esp32:esp32:m5stack_cardputer:PSRAM=enabled,PartitionScheme=default_8MB" -p /dev/cu.usbmodem1101 DeepSeekWhale
+```
+
+Create `/dswhale/config.json` on the SD card:
+
+```json
+{
+  "wifi": { "ssid": "YourWiFi", "pass": "YourPassword" },
+  "api_key": "sk-...",
+  "refresh_sec": 60
+}
+```
+
+Full field reference: [docs/CONFIG.md](docs/CONFIG.md) (Chinese). Troubleshooting:
+[docs/GETTING-STARTED.md](docs/GETTING-STARTED.md) (Chinese).
+
+## Keys
+
+| Key | Action |
+|---|---|
+| `ENTER` / `Space` | Main: bubble · Menu: confirm |
+| `TAB` | Toggle menu |
+| `` ` `` / `DEL` | Back |
+| `;` `w` / `.` `s` | Up / down (also `FN` + `;` `.` `,` `/`); hold to repeat |
+| `,` `a` / `/` `d` | Left / right (adjust settings) |
+| `R` | Refresh now |
+
+## Known limitations
+
+- The device cannot see DSH session events, so **today's spend is balance-observation based** —
+  there is no per-turn token breakdown. The balance endpoint returns snapshots only, so a top-up
+  and spend inside the same refresh interval cannot be told apart (same as upstream).
+- Polling every 60 s is ~1440 requests/day; raise `refresh_sec` if that bothers you.
+- There is **no on-device text entry**: WiFi credentials and the API key are configured by editing
+  the JSON on the SD card (no captive-portal setup either).
+- Upstream's mp3/wav/gif assets are **not** MIT-licensed and are **not** bundled here.
+- The holiday table covers **2026**; it must be extended when the 2027 schedule is published
+  (`tools/check-holidays.py` warns, and CI runs it).
+
+## License
+
+Code: [MIT](LICENSE). Ported from `MeteorNOX/DeepSeek-Balance-Whale-Widget` (MIT): accounting
+algorithm, price table, peak-hour rules and the whale character. Artwork under `assets/` keeps
+upstream's **as-is** terms and is **not** MIT — see [NOTICE.md](NOTICE.md).

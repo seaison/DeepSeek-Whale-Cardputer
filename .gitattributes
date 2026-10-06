@@ -1,0 +1,21 @@
+# 统一按文本处理、LF 换行；Windows 上检出也保持 LF，避免固件里混入 CRLF
+* text=auto eol=lf
+
+*.ino   text
+*.cpp   text
+*.h     text
+*.hpp   text
+*.py    text
+*.md    text
+*.yml   text
+*.yaml  text
+*.json  text
+
+# 原始位图：二进制，别做任何换行/编码转换
+*.bin   binary
+*.png   binary
+*.jpg   binary
+*.gif   binary
+
+# 生成的位图头文件：标记为生成物，GitHub 上折叠 diff
+src/assets/whale_96.h linguist-generated=true

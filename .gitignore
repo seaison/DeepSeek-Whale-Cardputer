@@ -1,0 +1,32 @@
+# ---- Arduino / arduino-cli 构建产物 ----
+build/
+build-*/
+*.elf
+*.map
+*.hex
+*.bin.tmp
+*.d
+*.o
+*.a
+*.su
+*.lo
+*.la
+*.dSYM/
+compile_commands.json
+.arduino/
+.vscode/arduino.json
+.vscode/ipch/
+.clangd/
+
+# 注意：assets/*.bin 是**要提交的**原始位图，所以不要在这里忽略 *.bin
+
+# ---- 运行时产物（如果本地跑过脚本）----
+/docs/images/*-generated.png
+
+# ---- macOS / 编辑器 ----
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+*.swp
+*~

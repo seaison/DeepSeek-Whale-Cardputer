@@ -1,0 +1,91 @@
+name: Bug 报告
+description: 设备上跑出问题了（余额不对、屏幕花、连不上…）
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        先看一眼 [上手与排错](https://github.com/seaison/DeepSeek-Whale-Cardputer/blob/main/docs/GETTING-STARTED.md#五排错)，
+        那里面按 `Network` 屏的字段逐个列了排查办法，能省一轮来回 🙏
+
+  - type: input
+    id: version
+    attributes:
+      label: 固件版本
+      description: 菜单 → About 里的 version，或串口第一行 `[whale] DeepSeek Whale x.y.z`
+      placeholder: "1.0.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: board
+    attributes:
+      label: 设备
+      options:
+        - M5Stack Cardputer ADV
+        - M5Stack Cardputer（老款）
+        - 其它（请在补充说明里写）
+    validations:
+      required: true
+
+  - type: input
+    id: env
+    attributes:
+      label: 开发环境
+      description: Arduino IDE 版本 / arduino-cli 版本 / arduino-esp32 core 版本
+      placeholder: "arduino-cli 1.5.1, esp32:esp32 3.3.10, M5Cardputer 1.1.1"
+    validations:
+      required: true
+
+  - type: input
+    id: board_options
+    attributes:
+      label: 开发板设置
+      description: PSRAM 与 Partition Scheme 具体选了什么
+      placeholder: "PSRAM=QSPI PSRAM, PartitionScheme=8M with spiffs (3MB APP)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: 现象
+      description: 屏幕上看到什么？期望是什么？
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 上电
+        2. TAB 进菜单 → Network
+        3. 看到 ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: network_screen
+    attributes:
+      label: Network 屏的内容
+      description: TAB → Network，把那一屏的字段抄下来（**api key 请打码**）
+      render: text
+      placeholder: |
+        state      online
+        ip         192.168.1.23
+        rssi       -58 dBm
+        time sync  ok
+        last fetch HTTP 200
+        message    OK 412ms
+    validations:
+      required: true
+
+  - type: textarea
+    id: serial
+    attributes:
+      label: 串口日志（115200）
+      render: text
+    validations:
+      required: false

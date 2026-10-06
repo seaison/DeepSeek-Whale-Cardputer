@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 上手 / 排错文档
+    url: https://github.com/seaison/DeepSeek-Whale-Cardputer/blob/main/docs/GETTING-STARTED.md
+    about: 连不上 WiFi、余额显示 --、编译装不下……先看这里
+  - name: 上游插件仓库（记账与定价口径的出处）
+    url: https://github.com/MeteorNOX/DeepSeek-Balance-Whale-Widget
+    about: 本工程是它的设备端移植；余额口径、峰谷规则的权威说明在上游 README
