@@ -187,10 +187,13 @@ Lang fromCode(const char* code, Lang fallback = Lang::En);
 // 英文用 M5FX 自带字体（6x8 点阵 / 8x16 点阵 / FreeSans 矢量）；
 // 中文用 efontCN 子集字库。
 struct FontSet {
-    const lgfx::IFont* small;  // 小标签、状态栏
-    const lgfx::IFont* mono;   // 菜单 / 列表 / 次要数值
-    const lgfx::IFont* value;  // 主数值（大号）
+    const lgfx::IFont* small;  // 小标签、状态栏、底栏提示
+    const lgfx::IFont* mono;   // 菜单 / 列表 / 次要数值 / 余额那行的标签
+    const lgfx::IFont* value;  // 主数值（余额）
     const lgfx::IFont* title;  // 启动页标题
+    // 主数值的额外缩放。英文 12pt 已经够大，取 1.0；
+    // 中文 efont 最大只有 24px，靠 setTextSize 再放大一点（点阵缩放，1.15 倍内还算干净）。
+    float valueScale;
 };
 
 const FontSet& fonts();

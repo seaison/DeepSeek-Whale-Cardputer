@@ -4,9 +4,10 @@
 //   ┌──────────────────────────────────────────┐
 //   │ 状态条: WiFi / 时钟 / 峰谷徽标            │  y 0..14
 //   ├────────────┬─────────────────────────────┤
-//   │ 鲸鱼 96x96 │  余额        110.00          │  行式布局：左标签 + 右数值
-//   │            │  今日已用     1.23           │
-//   │            │  高峰计价    2h 13m          │
+//   │ 鲸鱼 96x96 │  余额                        │  右列：余额是「标签 + 大号数值」
+//   │            │  110.00                      │  的块（占满列宽，字号才放得大）；
+//   │            │  今日已用            1.23     │  下面两行是「左标签 + 右数值」；
+//   │            │  高峰计价          2h 13m     │  剩余竖直空间均分成两个间隙
 //   ├────────────┴─────────────────────────────┤
 //   │ 提示 / 错误行                             │  y 120..134
 //   └──────────────────────────────────────────┘
@@ -270,71 +271,97 @@ void Ui::composeMain(const ViewModel& vm) {
     panel(3, 18, 100, 100, kBgDeep, kPanelEdge);
     whale(5, 20);
 
-    // 右侧三行：左标签 + 右数值。
-    // 行高按当前字体实测；「标签 + 数值」在列宽里放不下时，数值自动降一档字体
-    // —— 宁可小一点，也不要在中文/大额时压字。
-    canvas_.setFont(F.value);
-    const int hValue = (int)canvas_.fontHeight();
+    // 右侧：余额做成「标签一行 + 大号数值一行」的块（能占满整列宽度，字号才放得大），
+    // 下面两行仍是「左标签 + 右数值」；剩下的竖直空间均分成两个间隙，把整列撑满。
     canvas_.setFont(F.mono);
     const int hMono = (int)canvas_.fontHeight();
+    canvas_.setFont(F.value);
+    canvas_.setTextSize(F.valueScale);
+    const int hValue = (int)canvas_.fontHeight();
+    canvas_.setTextSize(1.0f);
+
     constexpr int kColW = kColRight - kColX;
-
-    auto drawRow = [&](int y, int rowH, const char* label, uint16_t labelColor, const char* value,
-                       bool wantBig, uint16_t valueColor) {
-        canvas_.setFont(F.small);
-        const int labelW = (int)canvas_.textWidth(label);
-        bool big = wantBig;
-        if (big) {
-            canvas_.setFont(F.value);
-            if (labelW + (int)canvas_.textWidth(value) + 8 > kColW) big = false;  // 放不下就降档
-        }
-        const lgfx::IFont* vf = big ? F.value : F.mono;
-
-        canvas_.setFont(F.small);
-        canvas_.setTextColor(labelColor);
-        canvas_.setTextDatum(textdatum_t::middle_left);
-        canvas_.drawString(label, kColX, y + rowH / 2);
-
-        canvas_.setFont(vf);
-        canvas_.setTextColor(valueColor);
-        canvas_.setTextDatum(textdatum_t::middle_right);
-        canvas_.drawString(value, kColRight, y + rowH / 2);
-    };
+    const int colTop = 18;
+    const int avail = (kFooterY - 2) - colTop;
+    const int hLabel = hMono;              // 余额标签也用 mono 档，比 small 大一档
+    const int hBlock = hLabel + hValue + 1;
+    int free = avail - (hBlock + hMono + hMono);
+    if (free < 8) free = 8;
+    const int gap = free / 2;
 
     char value[40];
-    int y = 18;
+    int y = colTop;
 
-    // —— 第 1 行：余额 ——
+    // —— 余额块 ——
+    const char* balanceText;
+    uint16_t balanceColor;
     if (vm.fetching && !vm.haveBalance) {
-        drawRow(y, hValue, lang::t(lang::Str::Balance), kMuted, "......", true, kMuted);
+        balanceText = "......";
+        balanceColor = kMuted;
     } else if (vm.haveBalance) {
         fmtMoney(vm.total, value, sizeof(value));
-        drawRow(y, hValue, lang::t(lang::Str::Balance), kMuted, value, true, kText);
+        balanceText = value;
+        balanceColor = kText;
     } else {
-        drawRow(y, hValue, lang::t(lang::Str::Balance), kMuted, lang::t(lang::Str::NoData), true,
-                kWarn);
+        balanceText = lang::t(lang::Str::NoData);
+        balanceColor = kWarn;
     }
-    y += hValue + 4;
 
-    // —— 第 2 行：今日已用 ——
+    canvas_.setFont(F.mono);
+    canvas_.setTextColor(kMuted);
+    canvas_.setTextDatum(textdatum_t::top_left);
+    canvas_.drawString(lang::t(lang::Str::Balance), kColX, y);
+
+    // 数值：大号字放不下（余额位数多）就退回 mono 档，宁可小一点也不要挤出去
+    canvas_.setFont(F.value);
+    canvas_.setTextSize(F.valueScale);
+    const lgfx::IFont* balanceFont = F.value;
+    float balanceScale = F.valueScale;
+    if ((int)canvas_.textWidth(balanceText) > kColW) {
+        balanceFont = F.mono;
+        balanceScale = 1.0f;
+    }
+    canvas_.setTextSize(balanceScale);
+    canvas_.setFont(balanceFont);
+    canvas_.setTextColor(balanceColor);
+    canvas_.drawString(balanceText, kColX, y + hLabel + 1);
+    canvas_.setTextSize(1.0f);
+    y += hBlock + gap;
+
+    // —— 今日已用 ——
+    canvas_.setFont(F.small);
+    canvas_.setTextColor(kMuted);
+    canvas_.setTextDatum(textdatum_t::middle_left);
+    canvas_.drawString(lang::t(lang::Str::TodayUsed), kColX, y + hMono / 2);
+
+    canvas_.setFont(F.mono);
+    canvas_.setTextDatum(textdatum_t::middle_right);
     if (vm.today.valid) {
+        canvas_.setTextColor(vm.today.partialDay ? kAccentSoft : kText);
         fmtMoney(vm.today.amount, value, sizeof(value));
-        drawRow(y, hMono, lang::t(lang::Str::TodayUsed), kMuted, value, false,
-                vm.today.partialDay ? kAccentSoft : kText);
     } else {
-        drawRow(y, hMono, lang::t(lang::Str::TodayUsed), kMuted, lang::t(lang::Str::NoData), false,
-                kMuted);
+        canvas_.setTextColor(kMuted);
+        snprintf(value, sizeof(value), "%s", lang::t(lang::Str::NoData));
     }
-    y += hMono + 4;
+    canvas_.drawString(value, kColRight, y + hMono / 2);
+    y += hMono + gap;
 
-    // —— 第 3 行：峰谷档位 + 下一切换倒计时 ——
-    // 还没对时的时候只显示「等待对时」，不画标签（否则两段文字会挤在一起）
+    // —— 峰谷档位 + 下一切换倒计时 ——
     if (vm.timeSynced && vm.nextChangeAt > vm.nowUtc) {
+        canvas_.setFont(F.small);
+        canvas_.setTextColor(vm.peak ? kPeak : kValley);
+        canvas_.setTextDatum(textdatum_t::middle_left);
+        canvas_.drawString(lang::t(vm.peak ? lang::Str::PeakPrice : lang::Str::OffPeakPrice), kColX,
+                          y + hMono / 2);
+
         char cd[24];
         fmtCountdown(vm.nextChangeAt - vm.nowUtc, cd, sizeof(cd));
-        drawRow(y, hMono, lang::t(vm.peak ? lang::Str::PeakPrice : lang::Str::OffPeakPrice),
-                vm.peak ? kPeak : kValley, cd, false, kMuted);
+        canvas_.setFont(F.mono);
+        canvas_.setTextColor(kMuted);
+        canvas_.setTextDatum(textdatum_t::middle_right);
+        canvas_.drawString(cd, kColRight, y + hMono / 2);
     } else {
+        // 还没对时：只显示「等待对时」，不画标签（否则两段文字会挤在一起）
         canvas_.setFont(F.mono);
         canvas_.setTextColor(kMuted);
         canvas_.setTextDatum(textdatum_t::middle_right);

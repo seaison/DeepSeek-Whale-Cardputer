@@ -32,7 +32,7 @@ loop() {
     periodicFetch();        // 每 refresh_sec 拉一次余额
     debouncedSave();        // 配置改动 2.5s 后落盘
     saveLedger(false);      // 账本节流保存（≥30s 一次）
-    render();               // 最多 5fps 重绘（forceRender 立即生效）
+    render();               // 空闲 1fps（跟时钟跳秒）；按键/数据变化立即；动画期间 ~33fps
     delay(5);
 }
 ```

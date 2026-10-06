@@ -27,16 +27,18 @@ static_assert(sizeof(kZh) / sizeof(kZh[0]) == (size_t)Str::Count, "中文表与�
 constexpr FontSet kFontsEn = {
     &fonts::Font0,             // 6x8
     &fonts::AsciiFont8x16,     // 8x16
-    &fonts::FreeSans9pt7b,     // 数值（≈22px 行高）
-    &fonts::Orbitron_Light_24  // 标题
+    &fonts::FreeSans12pt7b,    // 余额数值（yAdvance 29，比原来的 9pt/22 大一档）
+    &fonts::Orbitron_Light_24, // 标题
+    1.0f
 };
 
 // 中文：efontCN 子集字库（U8g2）。三档字号合计约 +1.08MB flash，见 docs/ARCHITECTURE.md
 constexpr FontSet kFontsZh = {
     &fonts::efontCN_12,  // 小标签
-    &fonts::efontCN_16,  // 菜单 / 列表
-    &fonts::efontCN_24,  // 主数值
-    &fonts::efontCN_24   // 标题
+    &fonts::efontCN_16,  // 菜单 / 列表 / 余额标签
+    &fonts::efontCN_24,  // 主数值（efont 里最大的 CN 字号）
+    &fonts::efontCN_24,  // 标题
+    1.15f                // 主数值再放大一点，和英文那档的视觉大小对齐
 };
 
 // ===== 随机台词 =====
