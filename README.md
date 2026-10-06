@@ -61,13 +61,13 @@
 # 编译
 arduino-cli compile \
   --fqbn "esp32:esp32:m5stack_cardputer:PSRAM=enabled,PartitionScheme=default_8MB" \
-  DeepSeekWhale
+  firmware/DeepSeekWhale
 
 # 上传（端口按实际情况改）
 arduino-cli upload \
   --fqbn "esp32:esp32:m5stack_cardputer:PSRAM=enabled,PartitionScheme=default_8MB" \
   -p /dev/cu.usbmodem1101 \
-  DeepSeekWhale
+  firmware/DeepSeekWhale
 ```
 
 ### 3. 配置 WiFi 与 API key
@@ -108,24 +108,30 @@ API key 在 <https://platform.deepseek.com/api_keys> 申请；余额接口**只�
 ## 目录结构
 
 ```text
-DeepSeekWhale/
-├── DeepSeekWhale.ino          # 主程序：状态机、按键、刷新调度
-├── src/
-│   ├── app_config.{h,cpp}     # SD / NVS 配置存储
-│   ├── ledger.{h,cpp}         # 记账内核（accounting.mjs 的移植）
-│   ├── pricing.{h,cpp}        # 定价表 + 峰谷时段 + 法定节假日
-│   ├── net_link.{h,cpp}       # WiFi 状态机 + NTP + 余额接口
-│   ├── ui.{h,cpp}             # 240x135 界面（主屏 / 菜单 / 账本 / 气泡）
-│   ├── bubbles.{h,cpp}        # 鲸鱼台词与点击序列
-│   ├── sound.{h,cpp}          # 合成音 + SD 上的自定义 wav
-│   ├── money.h                # 定点金额工具（1e-8 元）
-│   ├── root_ca.h              # 内置根证书（DigiCert G2 + Amazon Root CA 1）
-│   └── assets/whale_96.h      # 生成的 96x96 RGB565 位图
-├── assets/                    # 原始位图 bin（as-is，见 NOTICE.md）
-├── tools/                     # bin2header / bin2png / 根证书生成 / 节假日与证书自检
-├── docs/                      # 上手、配置、架构、移植对照
-└── .github/workflows/ci.yml   # GitHub Actions：arduino-cli 编译
+DeepSeek-Whale-Cardputer/          # 仓库根（克隆到任何目录名都行）
+├── firmware/DeepSeekWhale/       # ← Arduino sketch（目录名必须与 .ino 同名）
+│   ├── DeepSeekWhale.ino         #   主程序：状态机、按键、刷新调度
+│   └── src/
+│       ├── app_config.{h,cpp}    #   SD / NVS 配置存储
+│       ├── ledger.{h,cpp}        #   记账内核（accounting.mjs 的移植）
+│       ├── pricing.{h,cpp}       #   定价表 + 峰谷时段 + 法定节假日
+│       ├── net_link.{h,cpp}      #   WiFi 状态机 + NTP + 余额接口
+│       ├── ui.{h,cpp}            #   240x135 界面（主屏 / 菜单 / 账本 / 气泡）
+│       ├── bubbles.{h,cpp}       #   鲸鱼台词与点击序列
+│       ├── sound.{h,cpp}         #   合成音 + SD 上的自定义 wav
+│       ├── money.h               #   定点金额工具（1e-8 元）
+│       ├── root_ca.h             #   内置根证书（DigiCert G2 + Amazon Root CA 1）
+│       └── assets/whale_96.h     #   生成的 96x96 RGB565 位图
+├── assets/                       # 原始位图 bin（as-is，见 NOTICE.md）
+├── tools/                        # bin2header / bin2png / 根证书生成 / 节假日与证书自检
+├── tests/                        # 主机侧单元测试 + 与上游实现的对拍 golden
+├── docs/                         # 上手、配置、架构、移植对照
+└── .github/workflows/ci.yml      # GitHub Actions：自检 + 单测 + 编译矩阵
 ```
+
+> 为什么 sketch 放在 `firmware/DeepSeekWhale/` 子目录：Arduino 要求
+> **sketch 目录名与 `.ino` 同名**，而仓库名带连字符。放子目录后，
+> 克隆到任何文件夹名都能直接编译，CI 和本地跑的还是同一条命令。
 
 ## 文档
 
@@ -133,6 +139,7 @@ DeepSeekWhale/
 - [配置文件字段](docs/CONFIG.md)
 - [架构与数据流](docs/ARCHITECTURE.md)
 - [与上游插件的功能对照](docs/PORTING.md)
+- [测试：怎么跑、golden 数据怎么来](tests/README.md)
 
 ## 已知限制
 
@@ -140,7 +147,7 @@ DeepSeekWhale/
 - 余额接口 60 秒轮询，**一天约 1440 次请求**；介意的话把 `refresh_sec` 调大。
 - 没有做设备端**文本输入**：WiFi 密码和 API key 需要在电脑上写进 SD 卡（同理，也没有 AP 配网门户）。
 - 上游的 mp3/wav/gif 素材不在 MIT 范围内，本工程**不打包**，只用合成音；想要原声请自备 wav 放 SD 卡。
-- 峰谷节假日表内置到 **2026 年**；2027 年的放假安排公布后需要更新 `src/pricing.cpp`（`tools/check-holidays.py` 会提醒）。
+- 峰谷节假日表内置到 **2026 年**；2027 年的放假安排公布后需要更新 `firmware/DeepSeekWhale/src/pricing.cpp`（`tools/check-holidays.py` 会提醒）。
 
 ## 许可证
 

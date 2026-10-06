@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 复核 api.deepseek.com 的证书链，是否由 src/root_ca.h 里内置的**某一个**根签发。
+# 复核 api.deepseek.com 的证书链，是否由 firmware/DeepSeekWhale/src/root_ca.h 里内置的**某一个**根签发。
 #
 #   bash tools/check-cert-chain.sh              # 默认查 api.deepseek.com
 #   bash tools/check-cert-chain.sh other.host   # 查别的域名
@@ -14,7 +14,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HOST="${1:-api.deepseek.com}"
-CA_FILE="$ROOT/src/root_ca.h"
+CA_FILE="$ROOT/firmware/DeepSeekWhale/src/root_ca.h"
 
 for bin in openssl python3; do
   command -v "$bin" >/dev/null 2>&1 || { echo "需要 $bin" >&2; exit 2; }
@@ -35,7 +35,7 @@ echo
 echo "链根 subject: $last_subject"
 
 echo
-echo "== 内置根（src/root_ca.h）=="
+echo "== 内置根（firmware/DeepSeekWhale/src/root_ca.h）=="
 inner_subjects="$(python3 - "$CA_FILE" <<'PY'
 import re, subprocess, sys
 text = open(sys.argv[1], encoding="utf-8").read()

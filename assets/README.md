@@ -8,7 +8,7 @@
 
 它由上游 `MeteorNOX/DeepSeek-Balance-Whale-Widget` 的 `assets/DSniang1.png`（小鲸鱼本体）
 在本机处理后得到（缩放 + 抠图到纯黑底 + 转 RGB565）。固件里用的
-`src/assets/whale_96.h` 就是从这个 bin 生成的。
+`firmware/DeepSeekWhale/src/assets/whale_96.h` 就是从这个 bin 生成的。
 
 ## 许可
 
@@ -30,7 +30,7 @@ python3 tools/bin2png.py \
 # 2) 生成固件用的 C 头文件（CI 会 diff 这个结果，保证仓库里那份和 bin 一致）
 python3 tools/bin2header.py \
   --input assets/whale_96x96_rgb565.bin \
-  --output src/assets/whale_96.h \
+  --output firmware/DeepSeekWhale/src/assets/whale_96.h \
   --width 96 --height 96 --name whale_96 --format rgb565
 ```
 
@@ -41,10 +41,10 @@ python3 tools/bin2header.py \
 
 ```bash
 # 例：128x128 的灰度图
-python3 tools/bin2header.py --input my.bin --output src/assets/my_whale.h \
+python3 tools/bin2header.py --input my.bin --output firmware/DeepSeekWhale/src/assets/my_whale.h \
   --width 128 --height 128 --name whale_128 --format gray8
 ```
 
-然后改 `src/ui.cpp` 里 `#include "assets/whale_96.h"` 与 `Ui::whale()` 的尺寸宏即可。
+然后改 `firmware/DeepSeekWhale/src/ui.cpp` 里 `#include "assets/whale_96.h"` 与 `Ui::whale()` 的尺寸宏即可。
 （`M5GFX::pushImage` 对 `uint16_t` 走 RGB565 路径，`uint8_t` 需要先指定色深或调色板，
 所以非 RGB565 的图目前还要自己补一步转换。）

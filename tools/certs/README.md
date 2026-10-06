@@ -1,6 +1,6 @@
 # tools/certs/ — 内置根证书
 
-这些 PEM 会被 [`tools/make-root-ca.py`](../make-root-ca.py) 合成 `src/root_ca.h`，
+这些 PEM 会被 [`tools/make-root-ca.py`](../make-root-ca.py) 合成 `firmware/DeepSeekWhale/src/root_ca.h`，
 用于固件里 `WiFiClientSecure::setCACert()` 校验 `api.deepseek.com` 的证书链。
 
 **为什么要两个：** DeepSeek 在国内和海外走的是**不同**的证书链（2026-10 实测）：
@@ -28,7 +28,7 @@
 # 1) 联网确认当前链根命中内置集合（CI 会跑；本地在国内/海外跑的结果可能不同，都算通过）
 bash tools/check-cert-chain.sh
 
-# 2) 确认 src/root_ca.h 与这些 PEM 一致（CI 会跑）
+# 2) 确认 firmware/DeepSeekWhale/src/root_ca.h 与这些 PEM 一致（CI 会跑）
 python3 tools/make-root-ca.py --check
 ```
 
@@ -43,6 +43,6 @@ openssl x509 -in tools/certs/amazon-root-ca1.pem  -noout -fingerprint -sha256
 
 1. 把新根 PEM 放进本目录；
 2. `python3 tools/make-root-ca.py`；
-3. 提交新 PEM + 重新生成的 `src/root_ca.h`；
+3. 提交新 PEM + 重新生成的 `firmware/DeepSeekWhale/src/root_ca.h`；
 4. 如果旧的根确实不再被用到，可以在同一次提交里删掉——`make-root-ca.py` 是按目录里
    现有文件全量生成的，文件在就在，删了就不在。

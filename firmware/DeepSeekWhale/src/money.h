@@ -4,6 +4,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>  // strtod（主机侧单测直接编译本头文件时需要）
 
 namespace money {
 

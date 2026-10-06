@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""把 tools/certs/*.pem 合成 src/root_ca.h。
+"""把 tools/certs/*.pem 合成 firmware/DeepSeekWhale/src/root_ca.h。
 
 为什么要多个根：**api.deepseek.com 的证书链随地区变化**（实测）：
 
@@ -10,7 +10,7 @@
 `WiFiClientSecure::setCACert()` 最终调 `mbedtls_x509_crt_parse()`，
 而 mbedtls 支持「一段 PEM 里包含多张证书」，所以这里直接把所有根拼成一串。
 
-  python3 tools/make-root-ca.py            # 写 src/root_ca.h
+  python3 tools/make-root-ca.py            # 写 firmware/DeepSeekWhale/src/root_ca.h
   python3 tools/make-root-ca.py --check    # 只校验仓库里的那份是否一致（CI 用）
 """
 
@@ -22,7 +22,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CERTS = ROOT / "tools" / "certs"
-OUT = ROOT / "src" / "root_ca.h"
+OUT = ROOT / "firmware" / "DeepSeekWhale" / "src" / "root_ca.h"
 
 # 证书文件 -> 注释里显示的地区标签
 LABELS = {

@@ -124,4 +124,16 @@ python3 tools/check-holidays.py
 bash tools/check-cert-chain.sh
 ```
 
-`money.h`、`pricing.cpp`、`ledger.cpp` 都不依赖 M5 硬件，只依赖 `<stdint.h>` / `<time.h>` / ArduinoJson（`ledger` 的序列化部分），在桌面编译器下加个 `SD` 的桩就能跑单元测试——目前还没做，属于 welcome contribution。
+`money.h` 与 `pricing.cpp` **完全不依赖 Arduino**，所以 `tests/native/run_tests.cpp` 直接用
+主机编译器（`g++`/`clang++`）编译它们并断言行为——`bash tests/run.sh` 秒级跑完，
+CI 里是一个独立的 job：
+
+- `money`：定点金额解析/格式化（含进位、负数、非法输入）
+- `pricing`：北京时间换算、跨零点、星期几、闰日
+- `pricing`：价目表与大小写不敏感的模型名匹配
+- `pricing`：**与上游实现对拍**——`tests/golden/peak-2026.tsv` 是由
+  `tests/gen-golden.mjs`（逐行转录上游 `lib/index.js` 的 `isPeakTime` / `nextPeakChangeAt`）
+  生成的，覆盖 2026-01-01 ~ 2027-01-31 共 396 天、9504 个小时样本、396 个切换点。
+  这样验证的是「移植与上游等价」，而不是「自己和自己一致」。
+
+`ledger.cpp` 因为依赖 `SD`/`File`，目前还没有主机侧测试（见 [tests/README.md](../tests/README.md) 第四节）。

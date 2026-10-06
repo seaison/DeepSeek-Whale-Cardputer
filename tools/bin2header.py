@@ -9,7 +9,7 @@
 
 用法：
   python3 tools/bin2header.py --input assets/whale_96x96_rgb565.bin \\
-      --output src/assets/whale_96.h --width 96 --height 96 --name whale_96
+      --output firmware/DeepSeekWhale/src/assets/whale_96.h --width 96 --height 96 --name whale_96
 
 校验规则（会拒绝明显对不上的输入，避免生成坏数组）：
   rgb565*: len == w * h * 2

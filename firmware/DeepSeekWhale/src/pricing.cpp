@@ -50,12 +50,36 @@ constexpr size_t kHolidayValleyCount = sizeof(kHolidayValley) / sizeof(kHolidayV
 
 const PriceTier& priceFor(const char* model) {
     if (!model || !*model) return kFlash;
+    // 上游 priceFor() 第一件事就是 toLowerCase()：模型名大小写不该影响计价。
+    char lower[64];
+    size_t i = 0;
+    for (; model[i] != '\0' && i < sizeof(lower) - 1; ++i) {
+        const char c = model[i];
+        lower[i] = (c >= 'A' && c <= 'Z') ? (char)(c - 'A' + 'a') : c;
+    }
+    lower[i] = '\0';
     // 与上游一致：按键长降序匹配，避免短关键字（如 pro）误伤别的模型。
     static const PriceTier* const kTable[] = {&kFlashLegacy2, &kFlashLegacy1, &kPro, &kFlash};
     for (const PriceTier* t : kTable) {
-        if (strstr(model, t->model) != nullptr) return *t;
+        if (strstr(lower, t->model) != nullptr) return *t;
     }
     return kFlash;  // _default
+}
+
+// 公历 -> 天数（Howard Hinnant 的 days_from_civil）。arduino-esp32 3.x 没有 timegm()，
+// 所以日期换 epoch 全部走这里，避免依赖 libc 的时区实现。
+int64_t daysFromCivil(int year, unsigned month, unsigned day) {
+    int y = year - (month <= 2 ? 1 : 0);
+    const int64_t era = (y >= 0 ? y : y - 399) / 400;
+    const unsigned yoe = (unsigned)(y - era * 400);
+    const unsigned doy = (153u * (month + (month > 2 ? -3u : 9u)) + 2u) / 5u + day - 1u;
+    const unsigned doe = yoe * 365u + yoe / 4u - yoe / 100u + doy;
+    return era * 146097 + (int64_t)doe - 719468;
+}
+
+int64_t epochFromBeijing(int year, int month, int day, int hour, int minute, int second) {
+    const int64_t days = daysFromCivil(year, (unsigned)month, (unsigned)day);
+    return days * 86400 + (int64_t)hour * 3600 + (int64_t)minute * 60 + second - 8 * 3600;
 }
 
 BeijingTime beijing(int64_t utcSec) {

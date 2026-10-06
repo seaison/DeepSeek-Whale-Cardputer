@@ -37,7 +37,7 @@ CLI 等价写法：
 arduino-cli board list
 
 # 编译
-arduino-cli compile --fqbn "esp32:esp32:m5stack_cardputer:PSRAM=enabled,PartitionScheme=default_8MB" DeepSeekWhale
+arduino-cli compile --fqbn "esp32:esp32:m5stack_cardputer:PSRAM=enabled,PartitionScheme=default_8MB" firmware/DeepSeekWhale
 
 # 上传
 arduino-cli upload  --fqbn "esp32:esp32:m5stack_cardputer:PSRAM=enabled,PartitionScheme=default_8MB" -p /dev/cu.usbmodem1101 DeepSeekWhale

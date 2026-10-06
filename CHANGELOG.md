@@ -14,7 +14,7 @@
 - 余额校正（对齐上游 `reconcileBalance` 的扣除口径）
 - 设备端配置编辑界面（不再必须拔卡改 JSON）
 - AP 配网门户（手机填 WiFi 与 API key）
-- 主机侧单元测试（`money` / `pricing` / `ledger`）
+- 主机侧单元测试补 `ledger`（需要给 `SD`/`File` 写内存桩；`money` / `pricing` 已有）
 
 ## [1.0.0] - 2026-10-06
 
@@ -48,15 +48,27 @@
 - **音效**：运行期合成（按键 / 完成 / 报错），支持 SD 上的 `task_end.wav` 覆盖；**不打包**任何第三方素材。
 - **工具**：`tools/bin2header.py`（裸位图 → C 头）、`tools/bin2png.py`（裸位图 → PNG 预览）、
   `tools/check-holidays.py`（节假日表覆盖自检）、`tools/check-cert-chain.sh`（证书链复核）。
-- **CI**：GitHub Actions 跑节假日/证书/生成物一致性自检，并在 `PSRAM=enabled` 与 `PSRAM=disabled`
-  两种配置下各编译一遍；编译产物作为 artifact 上传。
+- **测试**：主机侧单元测试 `tests/`（`bash tests/run.sh`，秒级、不需要硬件）——
+  `money` 定点金额、`pricing` 北京时间换算与价目表，外加**与上游实现对拍**：
+  `tests/golden/peak-2026.tsv` 由 `tests/gen-golden.mjs`（转录上游 `lib/index.js` 的
+  `isPeakTime` / `nextPeakChangeAt`）生成，覆盖 396 天 / 9504 个小时样本 / 396 个切换点。
+- **CI**：GitHub Actions 分三段——节假日/证书/生成物一致性自检、主机侧单元测试、
+  以及在 `PSRAM=enabled` 与 `PSRAM=disabled` 两种配置下各编译一遍；编译产物作为 artifact 上传。
 
 ### 说明
 
 - 固件约 **1.39 MB**，**必须**把 Partition Scheme 设成 `8M with spiffs (3MB APP)` 或更大；
   默认 4MB 分区（1.2MB APP）装不下。
 - 「今日已用」是**余额观测口径**，不含逐轮 token 明细（设备端看不到 DSH 会话事件）。
-- 节假日表只覆盖到 **2026 年**；2027 年安排公布后需更新 `src/pricing.cpp`。
+- 节假日表只覆盖到 **2026 年**；2027 年安排公布后需更新 `firmware/DeepSeekWhale/src/pricing.cpp`（`tools/check-holidays.py` 会提醒）。
+
+### 开发过程中被测试/CI 抓出来的坑（留个记录）
+
+- **DeepSeek 国内外证书链不同**：本机（大陆）是 `TrustAsia ← DigiCert Global Root G2`，
+  GitHub Actions 美国 runner 上却是 `Amazon RSA 2048 M01 ← Amazon Root CA 1`。
+  只钉一个根会让另一边的用户握手失败 → 现在两个根都内置（`tools/certs/`）。
+- **模型名匹配漏了大小写归一**：上游 `priceFor()` 第一步是 `toLowerCase()`，
+  移植时漏了 → 单测里加了一条 `DeepSeek-V4-Pro` 的用例锁住行为。
 
 [Unreleased]: https://github.com/seaison/DeepSeek-Whale-Cardputer/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/seaison/DeepSeek-Whale-Cardputer/releases/tag/v1.0.0

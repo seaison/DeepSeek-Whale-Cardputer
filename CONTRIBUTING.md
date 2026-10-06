@@ -21,12 +21,18 @@ arduino-cli compile \
   --warnings all .
 ```
 
-提交前请至少跑一遍这个编译（CI 就是跑它）。改动涉及 `assets/` 或生成的位图头时，还要跑：
+提交前请至少跑一遍编译和单元测试（CI 跑的就是这两样）：
+
+```bash
+bash tests/run.sh    # money / pricing 纯逻辑 + 与上游实现对拍（秒级，不需要硬件）
+```
+
+改动涉及 `assets/` 或生成的位图头时，还要跑：
 
 ```bash
 python3 tools/bin2header.py --input assets/whale_96x96_rgb565.bin \
-  --output src/assets/whale_96.h --width 96 --height 96 --name whale_96 --format rgb565
-git diff --exit-code src/assets/whale_96.h   # 应该没有差异
+  --output firmware/DeepSeekWhale/src/assets/whale_96.h --width 96 --height 96 --name whale_96 --format rgb565
+git diff --exit-code firmware/DeepSeekWhale/src/assets/whale_96.h   # 应该没有差异
 ```
 
 ## 三、依赖版本
@@ -61,6 +67,9 @@ chore(ci): 缓存 esp32 core
 
 一个 PR 一件事。改了行为请在 `CHANGELOG.md` 的 `Unreleased` 加一条。
 
+改了 `pricing.cpp` 的峰谷/定价逻辑、或改了 `money.h` 时，记得同步 `tests/native/run_tests.cpp`
+里的用例；改了峰谷规则还要重新生成 golden（见 [tests/README.md](tests/README.md)）。
+
 ## 六、真机验证
 
 改界面、键盘、网络、存储的 PR **必须**在真机上试过，并在 PR 描述里写清楚：
@@ -78,12 +87,12 @@ chore(ci): 缓存 esp32 core
 
 | 表 | 位置 | 什么时候要动 |
 |---|---|---|
-| 法定节假日 | `src/pricing.cpp` 的 `kHolidayValley[]` | 每年 11 月国务院发布次年安排后（`tools/check-holidays.py` 会提醒，CI 会跑） |
-| 价目表 | `src/pricing.cpp` 的 `kFlash` / `kPro` | DeepSeek 官方调价时（上游 `lib/index.js` 的 `PRICING` 是同一份数据） |
+| 法定节假日 | `firmware/DeepSeekWhale/src/pricing.cpp` 的 `kHolidayValley[]` | 每年 11 月国务院发布次年安排后（`tools/check-holidays.py` 会提醒，CI 会跑） |
+| 价目表 | `firmware/DeepSeekWhale/src/pricing.cpp` 的 `kFlash` / `kPro` | DeepSeek 官方调价时（上游 `lib/index.js` 的 `PRICING` 是同一份数据） |
 
 ### 证书
 
-`src/root_ca.h` 由 `tools/make-root-ca.py` 从 `tools/certs/*.pem` 生成（**不要手改**），目前内置两个根：
+`firmware/DeepSeekWhale/src/root_ca.h` 由 `tools/make-root-ca.py` 从 `tools/certs/*.pem` 生成（**不要手改**），目前内置两个根：
 DigiCert Global Root G2 与 Amazon Root CA 1（有效期都到 2038）。
 
 ```bash
@@ -102,7 +111,7 @@ python3 tools/make-root-ca.py --check   # 校验 root_ca.h 与 tools/certs/ 一�
 
 ### 版本号与发布
 
-版本号在 `DeepSeekWhale.ino` 的 `APP_VERSION`，改完要同步 `CHANGELOG.md`：
+版本号在 `firmware/DeepSeekWhale/DeepSeekWhale.ino` 的 `APP_VERSION`，改完要同步 `CHANGELOG.md`：
 
 ```bash
 git tag -a v1.0.0 -m "DeepSeek Whale 1.0.0"

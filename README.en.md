@@ -59,8 +59,8 @@ Board settings (Arduino IDE → Tools):
 | USB CDC On Boot | Enabled |
 
 ```bash
-arduino-cli compile --fqbn "esp32:esp32:m5stack_cardputer:PSRAM=enabled,PartitionScheme=default_8MB" DeepSeekWhale
-arduino-cli upload  --fqbn "esp32:esp32:m5stack_cardputer:PSRAM=enabled,PartitionScheme=default_8MB" -p /dev/cu.usbmodem1101 DeepSeekWhale
+arduino-cli compile --fqbn "esp32:esp32:m5stack_cardputer:PSRAM=enabled,PartitionScheme=default_8MB" firmware/DeepSeekWhale
+arduino-cli upload  --fqbn "esp32:esp32:m5stack_cardputer:PSRAM=enabled,PartitionScheme=default_8MB" -p /dev/cu.usbmodem1101 firmware/DeepSeekWhale
 ```
 
 Create `/dswhale/config.json` on the SD card:
@@ -72,6 +72,8 @@ Create `/dswhale/config.json` on the SD card:
   "refresh_sec": 60
 }
 ```
+
+Host-side unit tests (no hardware needed): `bash tests/run.sh`. See [tests/README.md](tests/README.md).
 
 Full field reference: [docs/CONFIG.md](docs/CONFIG.md) (Chinese). Troubleshooting:
 [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md) (Chinese).

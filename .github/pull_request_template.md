@@ -17,7 +17,7 @@
 - [ ] `arduino-cli compile --fqbn "esp32:esp32:m5stack_cardputer:PSRAM=enabled,PartitionScheme=default_8MB" .` 通过
 - [ ] 在真机上试过（请写清楚测了什么：哪个屏、哪个按键、什么网络环境）
 - [ ] 涉及记账/峰谷/定价时，说明与上游口径的一致性
-- [ ] 涉及 `assets/` 或生成的 `src/assets/*.h` 时，已跑 `python3 tools/bin2header.py …` 并 `diff`
+- [ ] 涉及 `assets/` 或生成的 `firmware/DeepSeekWhale/src/assets/*.h` 时，已跑 `python3 tools/bin2header.py …` 并 `diff`
 
 ## 真机验证记录
 

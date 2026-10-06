@@ -10,17 +10,17 @@
 
 | 本工程内容 | 来源 | 许可 |
 |---|---|---|
-| `src/ledger.{h,cpp}` | 移植自上游 `lib/accounting.mjs`（余额观测记账、按密钥指纹分本、部分数据判定 `PARTIAL_GAP_MS`） | MIT |
-| `src/pricing.{h,cpp}` | 移植自上游 `lib/index.js` 的 `PRICING` / `BASE_PRICE` / `PRO_PRICE` / `PEAK_HOURS` / `HOLIDAY_VALLEY` / `isPeakTime` / `nextPeakChangeAt` | MIT |
-| `src/net_link.cpp` | 依据上游 `BALANCE_URL`（`https://api.deepseek.com/user/balance`）与字段路径 `balance_infos[0].total_balance` 等接口约定重写 | MIT |
-| `src/money.h` | 对齐上游 `SCALE = 1e8` 的定点金额口径 | MIT |
-| `src/bubbles.cpp` | 概念对应上游的「点击序列」（首次点击泡 → 队列 → 随机台词）；台词为**本工程重写**（英文） | MIT |
-| `src/ui.{h,cpp}`、`DeepSeekWhale.ino`、`src/app_config.*`、`src/net_link.*`、`src/sound.*` | 本工程原创（设备端 UI / 配置 / 网络状态机 / 音效） | MIT |
+| `firmware/DeepSeekWhale/src/ledger.{h,cpp}` | 移植自上游 `lib/accounting.mjs`（余额观测记账、按密钥指纹分本、部分数据判定 `PARTIAL_GAP_MS`） | MIT |
+| `firmware/DeepSeekWhale/src/pricing.{h,cpp}` | 移植自上游 `lib/index.js` 的 `PRICING` / `BASE_PRICE` / `PRO_PRICE` / `PEAK_HOURS` / `HOLIDAY_VALLEY` / `isPeakTime` / `nextPeakChangeAt` | MIT |
+| `firmware/DeepSeekWhale/src/net_link.cpp` | 依据上游 `BALANCE_URL`（`https://api.deepseek.com/user/balance`）与字段路径 `balance_infos[0].total_balance` 等接口约定重写 | MIT |
+| `firmware/DeepSeekWhale/src/money.h` | 对齐上游 `SCALE = 1e8` 的定点金额口径 | MIT |
+| `firmware/DeepSeekWhale/src/bubbles.cpp` | 概念对应上游的「点击序列」（首次点击泡 → 队列 → 随机台词）；台词为**本工程重写**（英文） | MIT |
+| `firmware/DeepSeekWhale/src/ui.{h,cpp}`、`DeepSeekWhale.ino`、`firmware/DeepSeekWhale/src/app_config.*`、`firmware/DeepSeekWhale/src/net_link.*`、`firmware/DeepSeekWhale/src/sound.*` | 本工程原创（设备端 UI / 配置 / 网络状态机 / 音效） | MIT |
 | `assets/whale_96x96_rgb565.bin` | 由上游 `assets/DSniang1.png`（小鲸鱼本体）经使用者本地处理后得到的 96×96 RGB565 裸位图 | **不适用 MIT**：上游声明为「as-is，不授予再许可」 |
 | `docs/images/whale_96.png` | 由上面那个 bin 渲染出的预览图 | 同上 |
-| `src/assets/whale_96.h` | 由 `tools/bin2header.py` 从上面的 bin 生成 | 同上（位图数据的另一种编码） |
+| `firmware/DeepSeekWhale/src/assets/whale_96.h` | 由 `tools/bin2header.py` 从上面的 bin 生成 | 同上（位图数据的另一种编码） |
 
-**本工程不包含**上游 `assets/` 下的 mp3 / wav / gif 素材，也不包含其 PNG 原图——那些素材不在 MIT 覆盖范围内。设备端音效改为**运行期合成**（`src/sound.cpp`）；想用上游的原声，请自行把 wav 放进 SD 卡（见 `docs/CONFIG.md`）。
+**本工程不包含**上游 `assets/` 下的 mp3 / wav / gif 素材，也不包含其 PNG 原图——那些素材不在 MIT 覆盖范围内。设备端音效改为**运行期合成**（`firmware/DeepSeekWhale/src/sound.cpp`）；想用上游的原声，请自行把 wav 放进 SD 卡（见 `docs/CONFIG.md`）。
 
 ## 三、上游对素材的声明（原文摘录）
 
@@ -64,7 +64,7 @@ SOFTWARE.
 | [M5Unified](https://github.com/m5stack/M5Unified) / [M5GFX](https://github.com/m5stack/M5GFX) / [M5Cardputer](https://github.com/m5stack/M5Cardputer) | MIT | 硬件抽象、显示、键盘 |
 | [ArduinoJson](https://github.com/bblanchon/ArduinoJson) | MIT | 配置 / 账本 / 接口 JSON |
 | arduino-esp32 | LGPL-2.1 | ESP32 平台核心 |
-| DigiCert Global Root G2 / Amazon Root CA 1 证书 | 公共根证书（DigiCert / Amazon 发布） | `src/root_ca.h`（由 `tools/certs/*.pem` 生成），用于校验 `api.deepseek.com` 的证书链 |
+| DigiCert Global Root G2 / Amazon Root CA 1 证书 | 公共根证书（DigiCert / Amazon 发布） | `firmware/DeepSeekWhale/src/root_ca.h`（由 `tools/certs/*.pem` 生成），用于校验 `api.deepseek.com` 的证书链 |
 
 ## 六、权利主张
 

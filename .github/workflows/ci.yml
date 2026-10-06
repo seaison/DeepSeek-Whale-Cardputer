@@ -14,7 +14,7 @@ env:
   # 与本仓库验证过的版本对齐（见 CONTRIBUTING.md「依赖版本」）
   ARDUINO_CORE: esp32:esp32@3.3.10
   ARDUINO_LIBS: M5Cardputer@1.1.1 M5Unified@0.2.25 M5GFX@0.2.32 ArduinoJson@7.4.3
-  SKETCH_DIR: .
+  SKETCH_DIR: firmware/DeepSeekWhale
 
 jobs:
   # 纯文本/数据自检：不需要工具链，先跑，错了立刻失败
@@ -42,7 +42,7 @@ jobs:
             --input assets/whale_96x96_rgb565.bin \
             --output /tmp/whale_96.h \
             --width 96 --height 96 --name whale_96 --format rgb565
-          diff -u src/assets/whale_96.h /tmp/whale_96.h
+          diff -u firmware/DeepSeekWhale/src/assets/whale_96.h /tmp/whale_96.h
 
       - name: Python 工具语法自检
         run: |
@@ -56,10 +56,31 @@ jobs:
             --output /tmp/whale.png \
             --width 96 --height 96 --format rgb565
 
+  # 主机侧单元测试：money / pricing（含与上游实现对拍），不需要工具链
+  native-tests:
+    name: Native unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: golden 与生成器一致（防止手改对拍数据）
+        run: |
+          node tests/gen-golden.mjs > /tmp/peak.tsv
+          diff -u tests/golden/peak-2026.tsv /tmp/peak.tsv
+
+      - name: 跑单元测试
+        run: bash tests/run.sh
+        env:
+          CXX: g++
+
   compile:
     name: Compile (${{ matrix.name }})
     runs-on: ubuntu-latest
-    needs: checks
+    needs: [checks, native-tests]
     strategy:
       fail-fast: false
       matrix:
@@ -103,6 +124,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: firmware-${{ strategy.job-index }}
-          path: build/**/*.bin
+          path: firmware/DeepSeekWhale/build/**/*.bin
           if-no-files-found: warn
           retention-days: 14

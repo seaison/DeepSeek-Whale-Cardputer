@@ -36,6 +36,13 @@ struct BeijingTime {
 BeijingTime beijing(int64_t utcSec);
 bool isHolidayValley(const char* yyyy_mm_dd);
 
+// 北京时间的年月日时分秒 -> UTC epoch（不依赖 libc 的 timegm）。
+// 记账内核用它把「北京时间日期」还原成当天 00:00 的 epoch，单元测试也用这个造样本。
+int64_t epochFromBeijing(int year, int month, int day, int hour = 0, int minute = 0, int second = 0);
+
+// 公历 -> 从 1970-01-01 起的天数（Howard Hinnant 的 days_from_civil）。
+int64_t daysFromCivil(int year, unsigned month, unsigned day);
+
 // 该时刻是否处于高峰计费时段。
 bool isPeakTime(int64_t utcSec);
 

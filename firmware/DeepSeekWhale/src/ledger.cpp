@@ -14,22 +14,12 @@ namespace {
 // 与上游 PARTIAL_GAP_MS 一致：观测起点/终点离当日边界超过 10 分钟就算「部分数据」。
 constexpr int64_t kPartialGapSec = 10 * 60;
 
-// 公历 -> 天数（Howard Hinnant 的 days_from_civil，不依赖 libc 的 timegm）
-int64_t daysFromCivil(int y, unsigned m, unsigned d) {
-    y -= (m <= 2);
-    const int64_t era = (y >= 0 ? y : y - 399) / 400;
-    const unsigned yoe = (unsigned)(y - era * 400);
-    const unsigned doy = (153u * (m + (m > 2 ? -3u : 9u)) + 2u) / 5u + d - 1u;
-    const unsigned doe = yoe * 365u + yoe / 4u - yoe / 100u + doy;
-    return era * 146097 + (int64_t)doe - 719468;
-}
-
 int64_t dayStartUtc(const std::string& day) {
     // day 是北京时间日期，转成对应的 UTC epoch（北京 00:00 = UTC 前一天 16:00）
     int y = 0, m = 0, d = 0;
     if (sscanf(day.c_str(), "%4d-%2d-%2d", &y, &m, &d) != 3) return -1;
     if (m < 1 || m > 12 || d < 1 || d > 31) return -1;
-    return daysFromCivil(y, (unsigned)m, (unsigned)d) * 86400 - 8 * 3600;
+    return pricing::epochFromBeijing(y, m, d);
 }
 
 }  // namespace

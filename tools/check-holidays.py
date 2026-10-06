@@ -2,7 +2,7 @@
 """峰谷节假日表自检（CI 里跑）。
 
 DeepSeek 的峰谷规则是「工作日高峰、周末与**中国法定节假日**全天谷价」，
-所以每年 11 月国务院发布次年安排后，必须把新日期补进 src/pricing.cpp 的
+所以每年 11 月国务院发布次年安排后，必须把新日期补进 firmware/DeepSeekWhale/src/pricing.cpp 的
 kHolidayValley 表。这个脚本负责在过期前提醒。
 
   python3 tools/check-holidays.py            # 检查
@@ -18,13 +18,13 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PRICING = ROOT / "src" / "pricing.cpp"
+PRICING = ROOT / "firmware" / "DeepSeekWhale" / "src" / "pricing.cpp"
 
 
 def load_dates(text: str) -> list[str]:
     block = re.search(r"kHolidayValley\[\]\s*=\s*\{(.*?)\};", text, re.S)
     if not block:
-        raise SystemExit("在 src/pricing.cpp 里找不到 kHolidayValley 表")
+        raise SystemExit("在 firmware/DeepSeekWhale/src/pricing.cpp 里找不到 kHolidayValley 表")
     return re.findall(r'"(\d{4}-\d{2}-\d{2})"', block.group(1))
 
 
@@ -62,7 +62,7 @@ def main() -> int:
     if need:
         for n in need:
             print(f"::warning::{n}", file=sys.stderr)
-        print("\n请更新 src/pricing.cpp 的 kHolidayValley 表（依据国务院办公厅通知）。")
+        print("\n请更新 firmware/DeepSeekWhale/src/pricing.cpp 的 kHolidayValley 表（依据国务院办公厅通知）。")
         return 1 if args.strict else 0
 
     print("OK：节假日表覆盖当前与下一年度。")
