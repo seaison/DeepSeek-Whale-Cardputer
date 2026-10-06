@@ -33,6 +33,7 @@
 | 📒 **账本** | 逐日「已观测消费」，SD 卡 `/dswhale/ledger.json`，原子写入；**按 API key 指纹分本**（换 key 不丢历史） |
 | 🔊 **音效** | 内置合成音（按键 / 完成 / 报错），不打包任何第三方素材；想用自定义音效就把 wav 放进 SD 卡 |
 | 🗂️ **配置** | SD 卡 `/dswhale/config.json` 为主，**没插卡自动退回 NVS**，拔卡也能跑 |
+| 🌐 **中英双语** | 界面文案全部双语，`设置 → 语言` 一键切换（主屏按 `L` 也能切），保存在 `config.json` 的 `lang` 字段；中文用 M5GFX 自带的 efont 子集字库，字形覆盖率有 CI 静态检查 |
 | 🔐 **TLS** | 内置**两个**根证书（DigiCert Global Root G2 / Amazon Root CA 1）——DeepSeek 国内外返回的证书链不一样，只钉一个会让另一边的用户握手失败；需要中间人代理时可关（见配置文档） |
 
 <img src="docs/images/whale-sprite-96.png" width="48" align="right" alt="96x96 sprite">
@@ -94,9 +95,12 @@ arduino-cli upload \
 {
   "wifi": { "ssid": "你的WiFi", "pass": "你的密码" },
   "api_key": "sk-你的DeepSeek密钥",
-  "refresh_sec": 60
+  "refresh_sec": 60,
+  "lang": "zh"
 }
 ```
+
+`lang` 可选 `"zh"`（中文）或 `"en"`（English，默认）。开机后也能在不拔卡的情况下切：菜单 → `设置 → 语言`，或者主屏直接按 `L`。
 
 完整字段见 [docs/CONFIG.md](docs/CONFIG.md)。第一次开机时固件也会在 SD 卡上自动写一份模板。
 
@@ -120,6 +124,7 @@ API key 在 <https://platform.deepseek.com/api_keys> 申请；余额接口**只�
 | `;` `w` / `.` `s` | 上 / 下（ADV 键盘上也可用 `FN` + `;` `.` `,` `/` 的方向键），长按连发 |
 | `,` `a` / `/` `d` | 左 / 右（设置项调值） |
 | `R` | 立即刷新余额 |
+| `L` | 中英切换 |
 
 ## 目录结构
 
@@ -133,6 +138,7 @@ DeepSeek-Whale-Cardputer/          # 仓库根（克隆到任何目录名都行�
 │       ├── pricing.{h,cpp}       #   定价表 + 峰谷时段 + 法定节假日
 │       ├── net_link.{h,cpp}      #   WiFi 状态机 + NTP + 余额接口
 │       ├── ui.{h,cpp}            #   240x135 界面（主屏 / 菜单 / 账本 / 气泡）
+│       ├── lang.{h,cpp}          #   中英文案表 + 字体集（X-macro 保证不漏翻）
 │       ├── bubbles.{h,cpp}       #   鲸鱼台词与点击序列
 │       ├── sound.{h,cpp}         #   合成音 + SD 上的自定义 wav
 │       ├── money.h               #   定点金额工具（1e-8 元）

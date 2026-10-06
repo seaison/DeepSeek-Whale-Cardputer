@@ -20,6 +20,10 @@ compile_commands.json
 
 # 注意：assets/*.bin 是**要提交的**原始位图，所以不要在这里忽略 *.bin
 
+# ---- Python 工具运行产物 ----
+__pycache__/
+*.pyc
+
 # ---- 运行时产物（如果本地跑过脚本）----
 /docs/images/*-generated.png
 

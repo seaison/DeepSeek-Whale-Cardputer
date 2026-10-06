@@ -30,6 +30,7 @@
 | `ledger_keep_days` | int | `90` | 1–3650 | 账本保留天数（与上游 90 天口径一致），超期逐日记录会被裁掉 |
 | `bubble_auto_close_sec` | int | `12` | 0–120 | 气泡自动关闭秒数，`0` = 不自动关（按键才关） |
 | `show_seconds` | bool | `true` | — | 状态栏时钟是否显示秒 |
+| `lang` | string | `"en"` | `"en"` / `"zh"` | 界面语言。`"zh"` 走 M5GFX 自带的 efont 中文字库；设备上也能切：菜单 → `设置 → 语言`，或主屏按 `L` |
 
 ### 示例
 
@@ -44,7 +45,8 @@
   "tls_verify": true,
   "ledger_keep_days": 90,
   "bubble_auto_close_sec": 12,
-  "show_seconds": true
+  "show_seconds": true,
+  "lang": "zh"
 }
 ```
 
@@ -52,7 +54,7 @@
 
 ### 没有 SD 卡时
 
-NVS 里只存三个字段（`ssid` / `pass` / `key`），因为容量和接口都有限：
+NVS 里只存四个字段（`ssid` / `pass` / `key` / `lang`），因为容量和接口都有限：
 
 - 首次烧录后如果没插卡，用**菜单 → Settings** 只能改亮度/音量这些运行时项，改完写入 NVS 的也只有上面三项；
 - 想完整配置（刷新间隔、TLS、账本天数……）还是需要 SD 卡。

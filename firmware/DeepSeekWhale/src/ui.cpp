@@ -1,11 +1,30 @@
+// 界面层：一块 240x135 的 M5Canvas 离屏缓冲，整屏重绘后 pushSprite。
+//
+// 布局（横屏 rotation=1）：
+//   ┌──────────────────────────────────────────┐
+//   │ 状态条: WiFi / 时钟 / 峰谷徽标            │  y 0..14
+//   ├────────────┬─────────────────────────────┤
+//   │ 鲸鱼 96x96 │  余额        110.00          │  行式布局：左标签 + 右数值
+//   │            │  今日已用     1.23           │
+//   │            │  高峰计价    2h 13m          │
+//   ├────────────┴─────────────────────────────┤
+//   │ 提示 / 错误行                             │  y 120..134
+//   └──────────────────────────────────────────┘
+//
+// 双语：所有文案走 lang::t()，字体走 lang::fonts()（中文是 efontCN，字形更宽更高），
+// 所以**行高与可视行数都是按当前字体实测出来的**，不是写死的常量。
 #include "ui.h"
 
 #include <stdio.h>
 #include <string.h>
 
+#include <string>
+#include <vector>
+
+#include "assets/whale_96.h"
+#include "lang.h"
 #include "money.h"
 #include "pricing.h"
-#include "assets/whale_96.h"
 
 namespace {
 
@@ -28,17 +47,14 @@ constexpr int kScreenW = 240;
 constexpr int kScreenH = 135;
 constexpr int kStatusH = 15;
 constexpr int kFooterY = kScreenH - 15;
-
-const lgfx::IFont* kSmall = &fonts::Font0;              // 6x8
-const lgfx::IFont* kMono = &fonts::AsciiFont8x16;       // 8x16
-const lgfx::IFont* kValue = &fonts::FreeSans9pt7b;      // 数值
-const lgfx::IFont* kTitle = &fonts::Orbitron_Light_24;  // 标题/大数字
+constexpr int kColX = 108;  // 右侧数据列起点
+constexpr int kColRight = kScreenW - 4;
 
 void fmtMoney(int64_t units, char* out, size_t n) {
     money::format(units, out, n, 2);
 }
 
-// 把秒数差格式化成 "1d 03h" / "2h 13m" / "13m 05s"
+// 把秒数差格式化成 "1d 03h" / "2h 13m" / "13m 05s"（纯数字+字母，中英通用）
 void fmtCountdown(int64_t sec, char* out, size_t n) {
     if (sec < 0) sec = 0;
     const int64_t d = sec / 86400;
@@ -63,6 +79,49 @@ void fmtAgo(int64_t sec, char* out, size_t n) {
     } else {
         snprintf(out, n, "%lldh", (long long)sec / 3600);
     }
+}
+
+// 按像素宽度折行。中英混排都能用：UTF-8 按首字节取整字（不会把汉字切两半），
+// ASCII 尽量在空格处断，CJK 可以任意位置断。
+void wrapText(M5Canvas& c, const char* text, int maxWidth, std::vector<std::string>& out,
+              size_t maxLines) {
+    out.clear();
+    if (!text || !*text || maxLines == 0) return;
+    std::string line;
+    const char* p = text;
+    while (*p) {
+        size_t len = 1;
+        const unsigned char ch = (unsigned char)*p;
+        if (ch >= 0xF0) {
+            len = 4;
+        } else if (ch >= 0xE0) {
+            len = 3;
+        } else if (ch >= 0xC0) {
+            len = 2;
+        }
+        const std::string glyph(p, len);
+        p += len;
+
+        const std::string probe = line + glyph;
+        if (c.textWidth(probe.c_str()) > maxWidth && !line.empty()) {
+            // ASCII 单词回退到最后一个空格，避免把单词劈开
+            if (glyph != " " && (unsigned char)glyph[0] < 0x80) {
+                const size_t sp = line.find_last_of(' ');
+                if (sp != std::string::npos && sp + 1 < line.size()) {
+                    out.push_back(line.substr(0, sp));
+                    line = line.substr(sp + 1) + glyph;
+                    if (out.size() >= maxLines) return;
+                    continue;
+                }
+            }
+            out.push_back(line);
+            line = glyph;
+            if (out.size() >= maxLines) return;
+        } else {
+            line = probe;
+        }
+    }
+    if (out.size() < maxLines && !line.empty()) out.push_back(line);
 }
 
 }  // namespace
@@ -92,21 +151,23 @@ void Ui::whale(int x, int y) {
 }
 
 void Ui::statusBar(const ViewModel& vm, const char* rightBadge, uint16_t badgeColor) {
+    const lang::FontSet& F = lang::fonts();
     canvas_.fillRect(0, 0, kScreenW, kStatusH, kPanel);
     canvas_.drawFastHLine(0, kStatusH - 1, kScreenW, kPanelEdge);
 
     canvas_.setTextDatum(textdatum_t::middle_left);
-    canvas_.setFont(kSmall);
+    canvas_.setFont(F.small);
 
     // 左：WiFi 状态
-    uint16_t dot = vm.wifiOnline ? kValley : (vm.wifiConfigured ? kPeak : kWarn);
+    const uint16_t dot = vm.wifiOnline ? kValley : (vm.wifiConfigured ? kPeak : kWarn);
     canvas_.fillCircle(7, kStatusH / 2, 3, dot);
     canvas_.setTextColor(kMuted);
-    char left[40];
+    char left[48];
     if (vm.wifiOnline) {
-        snprintf(left, sizeof(left), "WiFi %ddBm", (int)vm.rssi);
+        snprintf(left, sizeof(left), lang::t(lang::Str::WifiSignalFmt), (int)vm.rssi);
     } else {
-        snprintf(left, sizeof(left), "%s", vm.wifiConfigured ? "WiFi..." : "No WiFi");
+        snprintf(left, sizeof(left), "%s",
+                 lang::t(vm.wifiConfigured ? lang::Str::WifiConnecting : lang::Str::WifiNoConfig));
     }
     canvas_.drawString(left, 14, kStatusH / 2);
 
@@ -122,7 +183,7 @@ void Ui::statusBar(const ViewModel& vm, const char* rightBadge, uint16_t badgeCo
             snprintf(clock, sizeof(clock), "%02d:%02d", bt.hour, bt.minute);
         }
     } else {
-        snprintf(clock, sizeof(clock), "--:--");
+        snprintf(clock, sizeof(clock), "%s", lang::t(lang::Str::ClockPending));
     }
     canvas_.drawString(clock, kScreenW / 2, kStatusH / 2);
 
@@ -135,127 +196,147 @@ void Ui::statusBar(const ViewModel& vm, const char* rightBadge, uint16_t badgeCo
 }
 
 void Ui::footer(const char* text, uint16_t color) {
+    const lang::FontSet& F = lang::fonts();
     canvas_.fillRect(0, kFooterY, kScreenW, 15, kPanel);
     canvas_.drawFastHLine(0, kFooterY, kScreenW, kPanelEdge);
     canvas_.setTextDatum(textdatum_t::middle_center);
-    canvas_.setFont(kSmall);
+    canvas_.setFont(F.small);
     canvas_.setTextColor(color);
     canvas_.drawString(text, kScreenW / 2, kFooterY + 8);
 }
 
 void Ui::drawBoot(const char* stage, const char* detail) {
     if (!ready_) return;
+    const lang::FontSet& F = lang::fonts();
     canvas_.fillSprite(kBgDeep);
     canvas_.setTextDatum(textdatum_t::top_left);
-    canvas_.setFont(kTitle);
+    canvas_.setFont(F.title);
     canvas_.setTextColor(kAccent);
-    canvas_.drawString("DEEPSEEK", 12, 14);
+    canvas_.drawString(lang::t(lang::Str::BootTitleA), 12, 12);
     canvas_.setTextColor(kText);
-    canvas_.drawString("WHALE", 12, 40);
+    canvas_.drawString(lang::t(lang::Str::BootTitleB), 12, 12 + canvas_.fontHeight());
 
-    canvas_.setFont(kSmall);
+    canvas_.setFont(F.small);
     canvas_.setTextColor(kMuted);
-    canvas_.drawString("balance companion for M5Cardputer ADV", 12, 74);
+    canvas_.drawString(lang::t(lang::Str::BootTagline), 12, 88);
 
-    canvas_.drawFastHLine(12, 90, 216, kPanelEdge);
+    canvas_.drawFastHLine(12, 100, 216, kPanelEdge);
     canvas_.setTextColor(kAccentSoft);
-    canvas_.drawString(stage ? stage : "", 12, 96);
+    canvas_.drawString(stage ? stage : "", 12, 104);
     canvas_.setTextColor(kMuted);
-    if (detail) canvas_.drawString(detail, 12, 108);
+    if (detail) canvas_.drawString(detail, 12, 104 + canvas_.fontHeight() + 2);
     canvas_.pushSprite(0, 0);
 }
 
 void Ui::drawMain(const ViewModel& vm) {
     if (!ready_) return;
+    const lang::FontSet& F = lang::fonts();
     canvas_.fillSprite(kBgDeep);
 
     // 状态条右侧徽标
-    char badge[16];
+    const char* badge;
     uint16_t badgeColor;
     if (!vm.timeSynced) {
-        snprintf(badge, sizeof(badge), "SYNC TIME");
+        badge = lang::t(lang::Str::BadgeSyncTime);
         badgeColor = kMuted;
     } else if (vm.peak) {
-        snprintf(badge, sizeof(badge), "PEAK");
+        badge = lang::t(lang::Str::BadgePeak);
         badgeColor = kPeak;
     } else {
-        snprintf(badge, sizeof(badge), "OFF-PEAK");
+        badge = lang::t(lang::Str::BadgeOffPeak);
         badgeColor = kValley;
     }
     statusBar(vm, badge, badgeColor);
 
-    // 左侧鲸鱼：加一层淡淡的描边，避免图形直接压在深色底上发飘
+    // 左侧鲸鱼 + 淡描边
     panel(3, 18, 100, 100, kBgDeep, kPanelEdge);
     whale(5, 20);
 
-    // 右侧数据列
-    int y = 20;
-    canvas_.setTextDatum(textdatum_t::top_left);
-    canvas_.setFont(kSmall);
-    canvas_.setTextColor(kMuted);
-    char line[48];
-    snprintf(line, sizeof(line), "BALANCE  %s", vm.currency);
-    canvas_.drawString(line, 108, y);
-    y += canvas_.fontHeight() + 3;
+    // 右侧三行：左标签 + 右数值。
+    // 行高按当前字体实测；「标签 + 数值」在列宽里放不下时，数值自动降一档字体
+    // —— 宁可小一点，也不要在中文/大额时压字。
+    canvas_.setFont(F.value);
+    const int hValue = (int)canvas_.fontHeight();
+    canvas_.setFont(F.mono);
+    const int hMono = (int)canvas_.fontHeight();
+    constexpr int kColW = kColRight - kColX;
 
-    canvas_.setFont(kValue);
+    auto drawRow = [&](int y, int rowH, const char* label, uint16_t labelColor, const char* value,
+                       bool wantBig, uint16_t valueColor) {
+        canvas_.setFont(F.small);
+        const int labelW = (int)canvas_.textWidth(label);
+        bool big = wantBig;
+        if (big) {
+            canvas_.setFont(F.value);
+            if (labelW + (int)canvas_.textWidth(value) + 8 > kColW) big = false;  // 放不下就降档
+        }
+        const lgfx::IFont* vf = big ? F.value : F.mono;
+
+        canvas_.setFont(F.small);
+        canvas_.setTextColor(labelColor);
+        canvas_.setTextDatum(textdatum_t::middle_left);
+        canvas_.drawString(label, kColX, y + rowH / 2);
+
+        canvas_.setFont(vf);
+        canvas_.setTextColor(valueColor);
+        canvas_.setTextDatum(textdatum_t::middle_right);
+        canvas_.drawString(value, kColRight, y + rowH / 2);
+    };
+
+    char value[40];
+    int y = 18;
+
+    // —— 第 1 行：余额 ——
     if (vm.fetching && !vm.haveBalance) {
-        canvas_.setTextColor(kMuted);
-        canvas_.drawString("......", 108, y);
+        drawRow(y, hValue, lang::t(lang::Str::Balance), kMuted, "......", true, kMuted);
     } else if (vm.haveBalance) {
-        canvas_.setTextColor(kText);
-        fmtMoney(vm.total, line, sizeof(line));
-        canvas_.drawString(line, 108, y);
+        fmtMoney(vm.total, value, sizeof(value));
+        drawRow(y, hValue, lang::t(lang::Str::Balance), kMuted, value, true, kText);
     } else {
-        canvas_.setTextColor(kWarn);
-        canvas_.drawString("--", 108, y);
+        drawRow(y, hValue, lang::t(lang::Str::Balance), kMuted, lang::t(lang::Str::NoData), true,
+                kWarn);
     }
-    y += canvas_.fontHeight() + 4;
+    y += hValue + 4;
 
-    canvas_.setFont(kSmall);
-    canvas_.setTextColor(kMuted);
-    canvas_.drawString("TODAY USED", 108, y);
-    y += canvas_.fontHeight() + 3;
-
-    canvas_.setFont(kValue);
+    // —— 第 2 行：今日已用 ——
     if (vm.today.valid) {
-        canvas_.setTextColor(vm.today.partialDay ? kAccentSoft : kText);
-        fmtMoney(vm.today.amount, line, sizeof(line));
-        canvas_.drawString(line, 108, y);
+        fmtMoney(vm.today.amount, value, sizeof(value));
+        drawRow(y, hMono, lang::t(lang::Str::TodayUsed), kMuted, value, false,
+                vm.today.partialDay ? kAccentSoft : kText);
     } else {
-        canvas_.setTextColor(kMuted);
-        canvas_.drawString("--", 108, y);
+        drawRow(y, hMono, lang::t(lang::Str::TodayUsed), kMuted, lang::t(lang::Str::NoData), false,
+                kMuted);
     }
-    y += canvas_.fontHeight() + 4;
+    y += hMono + 4;
 
-    // 峰谷 + 倒计时
-    canvas_.setFont(kSmall);
-    canvas_.setTextColor(vm.peak ? kPeak : kValley);
-    const char* tierName = vm.peak ? "PEAK PRICE" : "OFF-PEAK PRICE";
-    canvas_.drawString(tierName, 108, y);
-    y += canvas_.fontHeight() + 3;
-    canvas_.setTextColor(kMuted);
-    if (vm.nextChangeAt > vm.nowUtc) {
+    // —— 第 3 行：峰谷档位 + 下一切换倒计时 ——
+    // 还没对时的时候只显示「等待对时」，不画标签（否则两段文字会挤在一起）
+    if (vm.timeSynced && vm.nextChangeAt > vm.nowUtc) {
         char cd[24];
         fmtCountdown(vm.nextChangeAt - vm.nowUtc, cd, sizeof(cd));
-        snprintf(line, sizeof(line), "switch in %s", cd);
+        drawRow(y, hMono, lang::t(vm.peak ? lang::Str::PeakPrice : lang::Str::OffPeakPrice),
+                vm.peak ? kPeak : kValley, cd, false, kMuted);
     } else {
-        snprintf(line, sizeof(line), "waiting for time");
+        canvas_.setFont(F.mono);
+        canvas_.setTextColor(kMuted);
+        canvas_.setTextDatum(textdatum_t::middle_right);
+        canvas_.drawString(lang::t(lang::Str::WaitingTime), kColRight, y + hMono / 2);
     }
-    canvas_.drawString(line, 108, y);
 
-    // 底栏：优先显示错误，其次显示上次更新时间
-    char foot[64];
+    // 底栏
+    char foot[80];
     if (!vm.lastError.empty()) {
         snprintf(foot, sizeof(foot), "! %s", vm.lastError.c_str());
         footer(foot, kWarn);
     } else if (vm.today.valid && !vm.today.partialDay) {
         char ago[24];
         fmtAgo(vm.nowUtc - vm.today.lastAt, ago, sizeof(ago));
-        snprintf(foot, sizeof(foot), "TAB menu   ENTER bubble   updated %s ago", ago);
+        snprintf(foot, sizeof(foot), lang::t(lang::Str::HintUpdatedFmt), ago);
         footer(foot, kMuted);
+    } else if (vm.today.valid) {
+        footer(lang::t(lang::Str::HintPartialToday), kMuted);
     } else {
-        footer("TAB menu   ENTER bubble   R refresh", kMuted);
+        footer(lang::t(lang::Str::HintMain), kMuted);
     }
     canvas_.pushSprite(0, 0);
 }
@@ -263,41 +344,47 @@ void Ui::drawMain(const ViewModel& vm) {
 void Ui::drawMenu(const ViewModel& vm, const std::vector<std::string>& items, int sel,
                   const char* subtitle) {
     if (!ready_) return;
+    const lang::FontSet& F = lang::fonts();
     canvas_.fillSprite(kBgDeep);
-    statusBar(vm, vm.timeSynced ? (vm.peak ? "PEAK" : "OFF-PEAK") : "SYNC TIME",
+    statusBar(vm,
+              lang::t(vm.timeSynced
+                          ? (vm.peak ? lang::Str::BadgePeak : lang::Str::BadgeOffPeak)
+                          : lang::Str::BadgeSyncTime),
               vm.timeSynced ? (vm.peak ? kPeak : kValley) : kMuted);
 
     canvas_.setTextDatum(textdatum_t::top_left);
-    canvas_.setFont(kSmall);
+    canvas_.setFont(F.small);
     canvas_.setTextColor(kAccent);
-    canvas_.drawString("MENU", 6, kStatusH + 3);
+    canvas_.drawString(lang::t(lang::Str::MenuTitle), 6, kStatusH + 3);
     if (subtitle) {
         canvas_.setTextColor(kMuted);
-        canvas_.drawString(subtitle, 44, kStatusH + 3);
+        canvas_.drawString(subtitle, 6 + canvas_.textWidth(lang::t(lang::Str::MenuTitle)) + 8,
+                           kStatusH + 3);
     }
 
-    // 6 行可视窗口，跟随选择滚动
-    const int rows = 6;
+    canvas_.setFont(F.mono);
+    const int rowH = (int)canvas_.fontHeight() + 2;
+    const int y0 = kStatusH + 6 + (int)canvas_.fontHeight();
+    int rows = (kFooterY - 2 - y0) / rowH;
+    if (rows < 3) rows = 3;
+    if (rows > 8) rows = 8;
+
     int top = sel - rows / 2;
     if (top < 0) top = 0;
     if (top > (int)items.size() - rows) top = (int)items.size() - rows;
     if (top < 0) top = 0;
 
-    const int y0 = kStatusH + 14;
     for (int i = 0; i < rows && top + i < (int)items.size(); ++i) {
         const int idx = top + i;
-        const int y = y0 + i * 15;
+        const int y = y0 + i * rowH;
         const bool active = idx == sel;
-        if (active) {
-            panel(3, y - 2, kScreenW - 6, 15, kAccent, kAccentSoft);
-        }
-        canvas_.setFont(kMono);
+        if (active) panel(3, y, kScreenW - 6, rowH, kAccent, kAccentSoft);
         canvas_.setTextColor(active ? kText : kMuted);
-        char row[40];
+        char row[48];
         snprintf(row, sizeof(row), "%s%s", active ? "> " : "  ", items[idx].c_str());
         canvas_.drawString(row, 7, y);
     }
-    footer("; / .  move   ENTER ok   ` back", kMuted);
+    footer(lang::t(lang::Str::HintMenu), kMuted);
     canvas_.pushSprite(0, 0);
 }
 
@@ -305,127 +392,174 @@ void Ui::drawList(const ViewModel& vm, const char* title,
                   const std::vector<std::pair<std::string, std::string>>& rows, int sel,
                   const char* foot) {
     if (!ready_) return;
+    const lang::FontSet& F = lang::fonts();
     canvas_.fillSprite(kBgDeep);
-    statusBar(vm, vm.peak ? "PEAK" : "OFF-PEAK", vm.peak ? kPeak : kValley);
+    statusBar(vm, lang::t(vm.peak ? lang::Str::BadgePeak : lang::Str::BadgeOffPeak),
+              vm.peak ? kPeak : kValley);
 
     canvas_.setTextDatum(textdatum_t::top_left);
-    canvas_.setFont(kSmall);
+    canvas_.setFont(F.small);
     canvas_.setTextColor(kAccent);
     canvas_.drawString(title, 6, kStatusH + 3);
-    canvas_.setTextColor(kMuted);
-    char cnt[24];
-    snprintf(cnt, sizeof(cnt), "%u rows", (unsigned)rows.size());
-    canvas_.drawString(cnt, 150, kStatusH + 3);
 
-    const int visible = 6;
+    char cnt[24];
+    snprintf(cnt, sizeof(cnt), lang::t(lang::Str::RowsFmt), (unsigned)rows.size());
+    canvas_.setTextColor(kMuted);
+    canvas_.setTextDatum(textdatum_t::top_right);
+    canvas_.drawString(cnt, kScreenW - 6, kStatusH + 3);
+
+    canvas_.setFont(F.mono);
+    const int rowH = (int)canvas_.fontHeight() + 2;
+    const int y0 = kStatusH + 6 + (int)canvas_.fontHeight();
+    int visible = (kFooterY - 2 - y0) / rowH;
+    if (visible < 3) visible = 3;
+    if (visible > 8) visible = 8;
+
     int top = sel - visible / 2;
     if (top < 0) top = 0;
     if (top > (int)rows.size() - visible) top = (int)rows.size() - visible;
     if (top < 0) top = 0;
 
-    const int y0 = kStatusH + 14;
-    canvas_.setFont(kMono);
     for (int i = 0; i < visible && top + i < (int)rows.size(); ++i) {
         const int idx = top + i;
-        const int y = y0 + i * 15;
-        if (idx == sel) panel(3, y - 2, kScreenW - 6, 15, kPanel, kPanelEdge);
+        const int y = y0 + i * rowH;
+        if (idx == sel) panel(3, y - 1, kScreenW - 6, rowH, kPanel, kPanelEdge);
         canvas_.setTextColor(idx == sel ? kText : kMuted);
+        canvas_.setTextDatum(textdatum_t::top_left);
         canvas_.drawString(rows[idx].first.c_str(), 7, y);
         canvas_.setTextColor(idx == sel ? kAccentSoft : kMuted);
         canvas_.setTextDatum(textdatum_t::top_right);
         canvas_.drawString(rows[idx].second.c_str(), kScreenW - 7, y);
-        canvas_.setTextDatum(textdatum_t::top_left);
     }
-    footer(foot ? foot : "; / .  scroll   ` back", kMuted);
+    footer(foot ? foot : lang::t(lang::Str::HintScroll), kMuted);
     canvas_.pushSprite(0, 0);
 }
 
 void Ui::drawSettings(const ViewModel& vm, const std::vector<std::string>& labels,
                       const std::vector<std::string>& values, int sel) {
     if (!ready_) return;
+    const lang::FontSet& F = lang::fonts();
     canvas_.fillSprite(kBgDeep);
-    statusBar(vm, vm.peak ? "PEAK" : "OFF-PEAK", vm.peak ? kPeak : kValley);
+    statusBar(vm, lang::t(vm.peak ? lang::Str::BadgePeak : lang::Str::BadgeOffPeak),
+              vm.peak ? kPeak : kValley);
 
     canvas_.setTextDatum(textdatum_t::top_left);
-    canvas_.setFont(kSmall);
+    canvas_.setFont(F.small);
     canvas_.setTextColor(kAccent);
-    canvas_.drawString("SETTINGS", 6, kStatusH + 3);
+    canvas_.drawString(lang::t(lang::Str::SettingsTitle), 6, kStatusH + 3);
     canvas_.setTextColor(kMuted);
-    canvas_.drawString("stored to SD/NVS", 60, kStatusH + 3);
+    canvas_.drawString(lang::t(lang::Str::SettingsSub),
+                       6 + canvas_.textWidth(lang::t(lang::Str::SettingsTitle)) + 8, kStatusH + 3);
 
-    const int visible = 5;
+    canvas_.setFont(F.mono);
+    const int rowH = (int)canvas_.fontHeight() + 3;
+    const int y0 = kStatusH + 6 + (int)canvas_.fontHeight();
+    int visible = (kFooterY - 2 - y0) / rowH;
+    if (visible < 3) visible = 3;
+    if (visible > 8) visible = 8;
+
     int top = sel - visible / 2;
     if (top < 0) top = 0;
     if (top > (int)labels.size() - visible) top = (int)labels.size() - visible;
     if (top < 0) top = 0;
 
-    const int y0 = kStatusH + 16;
-    canvas_.setFont(kMono);
     for (int i = 0; i < visible && top + i < (int)labels.size(); ++i) {
         const int idx = top + i;
-        const int y = y0 + i * 16;
-        if (idx == sel) panel(3, y - 2, kScreenW - 6, 16, kPanel, kPanelEdge);
+        const int y = y0 + i * rowH;
+        if (idx == sel) panel(3, y - 1, kScreenW - 6, rowH, kPanel, kPanelEdge);
         canvas_.setTextColor(idx == sel ? kText : kMuted);
+        canvas_.setTextDatum(textdatum_t::top_left);
         canvas_.drawString(labels[idx].c_str(), 7, y);
         canvas_.setTextColor(idx == sel ? kAccentSoft : kMuted);
         canvas_.setTextDatum(textdatum_t::top_right);
         char v[32];
         snprintf(v, sizeof(v), "< %s >", values[idx].c_str());
         canvas_.drawString(v, kScreenW - 7, y);
-        canvas_.setTextDatum(textdatum_t::top_left);
     }
-    footer("< > change   ; / .  move   ` back", kMuted);
+    footer(lang::t(lang::Str::HintSettings), kMuted);
     canvas_.pushSprite(0, 0);
 }
 
 void Ui::drawAbout(const ViewModel& vm) {
     if (!ready_) return;
+    const lang::FontSet& F = lang::fonts();
     canvas_.fillSprite(kBgDeep);
-    statusBar(vm, vm.peak ? "PEAK" : "OFF-PEAK", vm.peak ? kPeak : kValley);
+    statusBar(vm, lang::t(vm.peak ? lang::Str::BadgePeak : lang::Str::BadgeOffPeak),
+              vm.peak ? kPeak : kValley);
 
     canvas_.setTextDatum(textdatum_t::top_left);
-    canvas_.setFont(kSmall);
+    canvas_.setFont(F.small);
     canvas_.setTextColor(kAccent);
-    canvas_.drawString("ABOUT", 6, kStatusH + 3);
+    canvas_.drawString(lang::t(lang::Str::AboutTitle), 6, kStatusH + 3);
 
-    int y = kStatusH + 18;
-    canvas_.setFont(kMono);
-    char line[64];
+    canvas_.setFont(F.mono);
+    const int rowH = (int)canvas_.fontHeight() + 2;
+    int y = kStatusH + 6 + (int)canvas_.fontHeight();
     canvas_.setTextColor(kText);
-    canvas_.drawString("DeepSeek Whale", 6, y);
+    canvas_.drawString(lang::t(lang::Str::AboutName), 6, y);
     canvas_.setTextColor(kAccentSoft);
-    canvas_.drawString("Cardputer ADV", 120, y);
-    y += 15;
-    canvas_.setFont(kSmall);
+    canvas_.setTextDatum(textdatum_t::top_right);
+    canvas_.drawString(lang::t(lang::Str::AboutBoard), kScreenW - 6, y);
+    canvas_.setTextDatum(textdatum_t::top_left);
+    y += rowH + 2;
+
+    canvas_.setFont(F.small);
+    const int lh = (int)canvas_.fontHeight() + 3;
     canvas_.setTextColor(kMuted);
+    char line[80];
 
-    snprintf(line, sizeof(line), "version   %s", vm.version.c_str());
-    canvas_.drawString(line, 6, y); y += 11;
-    snprintf(line, sizeof(line), "built     %s", vm.buildDate.c_str());
-    canvas_.drawString(line, 6, y); y += 11;
-    snprintf(line, sizeof(line), "SD card   %s", vm.sdReady ? vm.sdStatus.c_str() : "not present");
-    canvas_.drawString(line, 6, y); y += 11;
-    snprintf(line, sizeof(line), "IP        %s", vm.ip.c_str());
-    canvas_.drawString(line, 6, y); y += 11;
-    snprintf(line, sizeof(line), "account   %s · %u day(s)", vm.scope.c_str(), (unsigned)vm.dayCount);
-    canvas_.drawString(line, 6, y); y += 11;
-    canvas_.drawString("port of MeteorNOX/DeepSeek-", 6, y);
-    y += 11;
-    canvas_.drawString("Balance-Whale-Widget", 6, y);
+    snprintf(line, sizeof(line), lang::t(lang::Str::AboutVersionFmt), vm.version.c_str());
+    canvas_.drawString(line, 6, y);
+    y += lh;
+    snprintf(line, sizeof(line), lang::t(lang::Str::AboutBuildFmt), vm.buildDate.c_str());
+    canvas_.drawString(line, 6, y);
+    y += lh;
+    snprintf(line, sizeof(line), lang::t(lang::Str::AboutSdFmt),
+             vm.sdReady ? vm.sdStatus.c_str() : lang::t(lang::Str::ValNotPresent));
+    canvas_.drawString(line, 6, y);
+    y += lh;
+    snprintf(line, sizeof(line), lang::t(lang::Str::AboutIpFmt), vm.ip.c_str());
+    canvas_.drawString(line, 6, y);
+    y += lh;
+    snprintf(line, sizeof(line), lang::t(lang::Str::AboutAcctFmt), vm.scope.c_str(),
+             (unsigned)vm.dayCount);
+    canvas_.drawString(line, 6, y);
+    y += lh;
 
-    footer("MIT · upstream MIT (assets as-is)   ` back", kMuted);
+    if (y < kFooterY - lh) {
+        canvas_.drawString(lang::t(lang::Str::AboutCreditA), 6, y);
+        y += lh;
+        canvas_.drawString(lang::t(lang::Str::AboutCreditB), 6, y);
+    }
+
+    footer(lang::t(lang::Str::HintAbout), kMuted);
     canvas_.pushSprite(0, 0);
 }
 
 void Ui::drawBubble(const ViewModel& vm, const char* title, const std::vector<std::string>& lines) {
     if (!ready_) return;
+    const lang::FontSet& F = lang::fonts();
     drawMain(vm);  // 先画主屏，气泡盖在上面
 
-    const int x = 96;
+    const int x = 84;
     const int w = kScreenW - x - 4;
-    int h = 20 + (int)lines.size() * 11 + 8;
-    if (h > 96) h = 96;
-    const int y = 20;
+    const int padX = 6;
+
+    canvas_.setFont(F.small);
+    const int lineH = (int)canvas_.fontHeight() + 3;
+
+    // 文案超宽就折行（中文一句话十几个字就超了），最多 5 行
+    std::vector<std::string> all;
+    std::vector<std::string> wrapped;
+    for (const auto& l : lines) {
+        if (all.size() >= 5) break;
+        wrapText(canvas_, l.c_str(), w - padX * 2, wrapped, 5 - all.size());
+        for (const auto& s : wrapped) all.push_back(s);
+    }
+
+    int h = 18 + (int)all.size() * lineH + 4;
+    if (h > 100) h = 100;
+    const int y = 16;
 
     // 指向鲸鱼的小尾巴
     canvas_.fillTriangle(x - 7, y + 26, x + 1, y + 20, x + 1, y + 34, kAccent);
@@ -433,16 +567,16 @@ void Ui::drawBubble(const ViewModel& vm, const char* title, const std::vector<st
     canvas_.drawFastHLine(x + 1, y + 15, w - 2, kPanelEdge);
 
     canvas_.setTextDatum(textdatum_t::top_left);
-    canvas_.setFont(kSmall);
+    canvas_.setFont(F.small);
     canvas_.setTextColor(kAccentSoft);
-    canvas_.drawString(title ? title : "", x + 6, y + 4);
+    canvas_.drawString(title ? title : "", x + padX, y + 3);
 
     canvas_.setTextColor(kText);
-    int ty = y + 18;
-    for (const auto& l : lines) {
-        if (ty > y + h - 9) break;
-        canvas_.drawString(l.c_str(), x + 6, ty);
-        ty += 11;
+    int ty = y + 17;
+    for (const auto& l : all) {
+        if (ty > y + h - lineH) break;
+        canvas_.drawString(l.c_str(), x + padX, ty);
+        ty += lineH;
     }
 
     // 右下角提示自动关闭
@@ -451,7 +585,7 @@ void Ui::drawBubble(const ViewModel& vm, const char* title, const std::vector<st
         snprintf(hint, sizeof(hint), "%ds", vm.bubbleCountdown);
         canvas_.setTextDatum(textdatum_t::bottom_right);
         canvas_.setTextColor(kMuted);
-        canvas_.drawString(hint, x + w - 6, y + h - 3);
+        canvas_.drawString(hint, x + w - padX, y + h - 3);
         canvas_.setTextDatum(textdatum_t::top_left);
     }
     canvas_.pushSprite(0, 0);
@@ -459,13 +593,29 @@ void Ui::drawBubble(const ViewModel& vm, const char* title, const std::vector<st
 
 void Ui::drawToastOverlay(const char* text) {
     if (!ready_ || !text) return;
-    canvas_.setFont(kSmall);
-    const int tw = canvas_.textWidth(text) + 16;
-    const int x = (kScreenW - tw) / 2;
-    const int y = kFooterY - 22;
-    panel(x, y, tw, 18, kPanel, kAccent);
-    canvas_.setTextDatum(textdatum_t::middle_center);
+    const lang::FontSet& F = lang::fonts();
+    canvas_.setFont(F.small);
+    const int lineH = (int)canvas_.fontHeight() + 3;
+    std::vector<std::string> lines;
+    wrapText(canvas_, text, kScreenW - 24, lines, 2);
+
+    int tw = 0;
+    for (const auto& l : lines) {
+        const int w = (int)canvas_.textWidth(l.c_str());
+        if (w > tw) tw = w;
+    }
+    const int boxW = (tw + 20 < kScreenW - 8) ? tw + 20 : kScreenW - 8;
+    const int boxH = (int)lines.size() * lineH + 8;
+    const int x = (kScreenW - boxW) / 2;
+    const int y = kFooterY - boxH - 2;
+
+    panel(x, y, boxW, boxH, kPanel, kAccent);
+    canvas_.setTextDatum(textdatum_t::top_left);
     canvas_.setTextColor(kText);
-    canvas_.drawString(text, kScreenW / 2, y + 9);
+    int ty = y + 4;
+    for (const auto& l : lines) {
+        canvas_.drawString(l.c_str(), x + 10, ty);
+        ty += lineH;
+    }
     canvas_.pushSprite(0, 0);
 }

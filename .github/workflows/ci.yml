@@ -112,6 +112,9 @@ jobs:
       - name: 安装库
         run: arduino-cli lib install ${ARDUINO_LIBS}
 
+      - name: 中英文案字形检查（英文必须纯 ASCII / 中文必须命中 efont 字库）
+        run: python3 tools/check-cjk-font.py --strict
+
       - name: 编译（--warnings all）
         run: |
           arduino-cli compile \

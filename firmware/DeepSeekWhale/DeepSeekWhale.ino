@@ -19,6 +19,7 @@
 
 #include "src/app_config.h"
 #include "src/bubbles.h"
+#include "src/lang.h"
 #include "src/ledger.h"
 #include "src/money.h"
 #include "src/net_link.h"
@@ -26,7 +27,7 @@
 #include "src/sound.h"
 #include "src/ui.h"
 
-#define APP_VERSION "1.0.0"
+#define APP_VERSION "1.1.0"
 
 // ============================ 全局状态 ============================
 static AppConfig g_cfg;
@@ -61,11 +62,14 @@ static bool g_toastOn = false;
 static uint32_t g_toastUntilMs = 0;
 static char g_toastText[48] = {};
 
-static const char* const kMenuItems[] = {
-    "Refresh now", "Show bubble", "Ledger",    "Network",
-    "Settings",    "About",       "Reload config", "Reboot",
+// 菜单项 = 文案表里的 key（顺序即菜单顺序）
+static const lang::Str kMenuStr[] = {
+    lang::Str::MenuRefresh, lang::Str::MenuBubble, lang::Str::MenuLedger, lang::Str::MenuNetwork,
+    lang::Str::MenuSettings, lang::Str::MenuAbout,  lang::Str::MenuReload, lang::Str::MenuReboot,
 };
-static constexpr int kMenuCount = sizeof(kMenuItems) / sizeof(kMenuItems[0]);
+static constexpr int kMenuCount = sizeof(kMenuStr) / sizeof(kMenuStr[0]);
+static constexpr int kMenuReboot = kMenuCount - 1;
+static constexpr int kMenuReload = kMenuCount - 2;
 
 // ============================ 小工具 ============================
 static void toast(const char* text) {
@@ -123,6 +127,17 @@ static void fillVm() {
 }
 
 // ============================ 配置 / 账本 ============================
+// 切换界面语言：立即生效并写进配置（延迟落盘由 loop 里的 cfgDirty 负责）
+static void applyLanguage(Lang l) {
+    lang::set(l);
+    g_cfg.language = lang::code();
+    g_forceRender = true;
+}
+
+static void toggleLanguage() {
+    applyLanguage(lang::current() == Lang::Zh ? Lang::En : Lang::Zh);
+}
+
 static void applyConfig() {
     M5Cardputer.Display.setBrightness(g_cfg.brightness);
     sound::begin(g_cfg.sound, g_cfg.volume);
@@ -149,7 +164,7 @@ static void reloadConfig() {
     applyConfig();
     g_net.setCredentials(g_cfg.wifiSsid, g_cfg.wifiPass);
     g_net.begin(g_cfg.wifiSsid, g_cfg.wifiPass);
-    toast(got ? "config reloaded" : "no config found");
+    toast(lang::t(got ? lang::Str::ToastConfigReloaded : lang::Str::ToastNoConfig));
 }
 
 // ============================ 网络 / 数据 ============================
@@ -162,7 +177,7 @@ static bool waitWifi(uint32_t timeoutMs) {
         char detail[48];
         snprintf(detail, sizeof(detail), "%s  %lus", g_cfg.wifiSsid.c_str(),
                  (unsigned long)((millis() - start) / 1000));
-        bootStage("WiFi connecting", detail);
+        bootStage(lang::t(lang::Str::BootWifiConnecting), detail);
         delay(50);
     }
     return g_net.online();
@@ -174,7 +189,7 @@ static bool waitTime(uint32_t timeoutMs) {
         M5Cardputer.update();
         g_net.loop();
         if (g_net.timeSynced()) return true;
-        bootStage("NTP time sync", "Beijing time (UTC+8)");
+        bootStage(lang::t(lang::Str::BootNtp), lang::t(lang::Str::BootBeijing));
         delay(50);
     }
     return g_net.timeSynced();
@@ -182,7 +197,8 @@ static bool waitTime(uint32_t timeoutMs) {
 
 static bool doFetch(bool announce) {
     if (!g_net.online()) {
-        g_vm.lastError = g_cfg.wifiSsid.empty() ? "no WiFi config" : "WiFi offline";
+        g_vm.lastError = lang::t(g_cfg.wifiSsid.empty() ? lang::Str::ErrNoWifiConfig
+                                                       : lang::Str::ErrWifiOffline);
         if (announce) sound::error();
         return false;
     }
@@ -248,26 +264,33 @@ enum SettingId {
     kSetTls,
     kSetBubbleClose,
     kSetSeconds,
+    kSetLanguage,
     kSetSave,
     kSetCount,
 };
 
 static void settingLabels(std::vector<std::string>& labels, std::vector<std::string>& values) {
     char buf[24];
-    labels = {"Brightness", "Sound", "Volume", "Refresh", "Verify TLS", "Bubble close",
-              "Clock seconds", "Save now"};
+    labels = {lang::t(lang::Str::SetBrightness), lang::t(lang::Str::SetSound),
+              lang::t(lang::Str::SetVolume),     lang::t(lang::Str::SetRefresh),
+              lang::t(lang::Str::SetTls),        lang::t(lang::Str::SetBubbleClose),
+              lang::t(lang::Str::SetSeconds),    lang::t(lang::Str::SetLanguage),
+              lang::t(lang::Str::SetSave)};
+    const char* on = lang::t(lang::Str::ValOn);
+    const char* off = lang::t(lang::Str::ValOff);
     values.clear();
     snprintf(buf, sizeof(buf), "%u", (unsigned)g_cfg.brightness);
     values.push_back(buf);
-    values.push_back(g_cfg.sound ? "on" : "off");
+    values.push_back(g_cfg.sound ? on : off);
     snprintf(buf, sizeof(buf), "%u", (unsigned)g_cfg.volume);
     values.push_back(buf);
     snprintf(buf, sizeof(buf), "%us", (unsigned)g_cfg.refreshSec);
     values.push_back(buf);
-    values.push_back(g_cfg.tlsVerify ? "on" : "off");
+    values.push_back(g_cfg.tlsVerify ? on : off);
     snprintf(buf, sizeof(buf), "%ds", g_cfg.bubbleAutoCloseSec);
     values.push_back(buf);
-    values.push_back(g_cfg.showSeconds ? "on" : "off");
+    values.push_back(g_cfg.showSeconds ? on : off);
+    values.push_back(lang::t(lang::Str::ValLangName));  // English / 中文
     values.push_back("-");
 }
 
@@ -303,9 +326,12 @@ static void adjustSetting(int dir) {
         case kSetSeconds:
             g_cfg.showSeconds = !g_cfg.showSeconds;
             break;
+        case kSetLanguage:
+            toggleLanguage();
+            break;
         case kSetSave: {
             const bool ok = g_store.save(g_cfg);
-            toast(ok ? "config saved" : "save failed");
+            toast(lang::t(ok ? lang::Str::ToastConfigSaved : lang::Str::ToastSaveFailed));
             g_cfgDirty = false;
             sound::ok();
             break;
@@ -399,6 +425,9 @@ static void handleChar(char c) {
         case Screen::Main:
             if (c == 'r' || c == 'R') {
                 doFetch(true);
+            } else if (c == 'l' || c == 'L') {
+                toggleLanguage();  // 中英一键切换
+                markCfgDirty();
             } else if (c == ' ') {
                 showBubble(true);
             }
@@ -425,7 +454,8 @@ static void handleEnter() {
         case Screen::Settings:
             if (g_setSel == kSetSave) {
                 adjustSetting(0);
-            } else if (g_setSel == kSetSound || g_setSel == kSetTls || g_setSel == kSetSeconds) {
+            } else if (g_setSel == kSetSound || g_setSel == kSetTls || g_setSel == kSetSeconds ||
+                       g_setSel == kSetLanguage) {
                 adjustSetting(0);
             }
             break;
@@ -504,10 +534,10 @@ static void activateMenu() {
         case 2: g_screen = Screen::Ledger; g_listSel = 0; break;
         case 3: g_screen = Screen::Net; g_listSel = 0; break;
         case 4: g_screen = Screen::Settings; g_setSel = 0; break;
-        case 5: g_screen = Screen::About; break;
-        case 6: reloadConfig(); break;
-        case 7:
-            toast("rebooting...");
+        case 5: g_screen = Screen::About; break;  // About
+        case kMenuReload: reloadConfig(); break;
+        case kMenuReboot:
+            toast(lang::t(lang::Str::ToastRebooting));
             fillVm();
             g_ui.drawMain(g_vm);
             g_ui.drawToastOverlay(g_toastText);
@@ -528,41 +558,46 @@ static void buildLedgerRows(std::vector<std::pair<std::string, std::string>>& ro
         money::format(d.second, amount, sizeof(amount), 2);
         rows.emplace_back(d.first, std::string(amount));
     }
-    if (rows.empty()) rows.emplace_back("(no records yet)", "-");
+    if (rows.empty()) rows.emplace_back(lang::t(lang::Str::LedgerEmpty), "-");
 }
 
 static void buildNetRows(std::vector<std::pair<std::string, std::string>>& rows) {
     rows.clear();
     char buf[40];
-    rows.emplace_back("state", g_net.stateText());
-    rows.emplace_back("ssid", g_cfg.wifiSsid.empty() ? "-" : g_cfg.wifiSsid);
-    rows.emplace_back("ip", g_vm.ip);
+    rows.emplace_back(lang::t(lang::Str::NetState), g_net.stateText());
+    rows.emplace_back(lang::t(lang::Str::NetSsid), g_cfg.wifiSsid.empty() ? "-" : g_cfg.wifiSsid);
+    rows.emplace_back(lang::t(lang::Str::NetIp), g_vm.ip);
     snprintf(buf, sizeof(buf), "%d dBm", (int)g_vm.rssi);
-    rows.emplace_back("rssi", buf);
-    rows.emplace_back("time sync", g_vm.timeSynced ? "ok" : "pending");
+    rows.emplace_back(lang::t(lang::Str::NetRssi), buf);
+    rows.emplace_back(lang::t(lang::Str::NetTimeSync),
+                     lang::t(g_vm.timeSynced ? lang::Str::ValOk : lang::Str::ValPending));
     if (g_vm.timeSynced) {
         const pricing::BeijingTime bt = pricing::beijing(g_vm.nowUtc);
         snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d:%02d", bt.year, bt.month, bt.day,
                  bt.hour, bt.minute, bt.second);
-        rows.emplace_back("beijing", buf);
+        rows.emplace_back(lang::t(lang::Str::NetBeijing), buf);
     }
-    rows.emplace_back("api key", g_cfg.apiKey.empty() ? "missing" : "set");
+    rows.emplace_back(lang::t(lang::Str::NetApiKey),
+                     lang::t(g_cfg.apiKey.empty() ? lang::Str::ValMissing : lang::Str::ValSet));
     snprintf(buf, sizeof(buf), "HTTP %d", g_snap.httpCode);
-    rows.emplace_back("last fetch", buf);
+    rows.emplace_back(lang::t(lang::Str::NetLastFetch), buf);
     snprintf(buf, sizeof(buf), "%ums", (unsigned)g_snap.latencyMs);
-    rows.emplace_back("latency", buf);
-    rows.emplace_back("currency", g_snap.currency);
-    rows.emplace_back("available", g_snap.available ? "yes" : "no");
+    rows.emplace_back(lang::t(lang::Str::NetLatency), buf);
+    rows.emplace_back(lang::t(lang::Str::NetCurrency), g_snap.currency);
+    rows.emplace_back(lang::t(lang::Str::NetAvailable),
+                     lang::t(g_snap.available ? lang::Str::ValYes : lang::Str::ValNo));
     char m[24];
     money::format(g_snap.granted, m, sizeof(m), 2);
-    rows.emplace_back("granted", m);
+    rows.emplace_back(lang::t(lang::Str::NetGranted), m);
     money::format(g_snap.toppedUp, m, sizeof(m), 2);
-    rows.emplace_back("topped up", m);
-    rows.emplace_back("tls verify", g_cfg.tlsVerify ? "on" : "off");
-    rows.emplace_back("sd card", g_vm.sdReady ? g_vm.sdStatus : "not present");
-    rows.emplace_back("account", g_vm.scope);
-    rows.emplace_back("books", std::to_string(g_vm.bookCount));
-    rows.emplace_back("message", g_snap.message);
+    rows.emplace_back(lang::t(lang::Str::NetToppedUp), m);
+    rows.emplace_back(lang::t(lang::Str::NetTls),
+                     lang::t(g_cfg.tlsVerify ? lang::Str::ValOn : lang::Str::ValOff));
+    rows.emplace_back(lang::t(lang::Str::NetSd),
+                     g_vm.sdReady ? g_vm.sdStatus : lang::t(lang::Str::ValNotPresent));
+    rows.emplace_back(lang::t(lang::Str::NetAccount), g_vm.scope);
+    rows.emplace_back(lang::t(lang::Str::NetBooks), std::to_string(g_vm.bookCount));
+    rows.emplace_back(lang::t(lang::Str::NetMessage), g_snap.message);
 }
 
 static void render() {
@@ -578,9 +613,9 @@ static void render() {
     switch (g_screen) {
         case Screen::Menu: {
             std::vector<std::string> items;
-            for (int i = 0; i < kMenuCount; ++i) items.emplace_back(kMenuItems[i]);
-            char sub[40];
-            snprintf(sub, sizeof(sub), "acct %s", g_vm.scope.c_str());
+            for (int i = 0; i < kMenuCount; ++i) items.emplace_back(lang::t(kMenuStr[i]));
+            char sub[48];
+            snprintf(sub, sizeof(sub), lang::t(lang::Str::MenuAcctFmt), g_vm.scope.c_str());
             g_ui.drawMenu(g_vm, items, g_menuSel, sub);
             break;
         }
@@ -588,15 +623,15 @@ static void render() {
             std::vector<std::pair<std::string, std::string>> rows;
             buildLedgerRows(rows);
             char foot[64];
-            snprintf(foot, sizeof(foot), "observed spend · %u days · %u book(s)", (unsigned)g_vm.dayCount,
+            snprintf(foot, sizeof(foot), lang::t(lang::Str::LedgerFootFmt), (unsigned)g_vm.dayCount,
                      (unsigned)g_vm.bookCount);
-            g_ui.drawList(g_vm, "LEDGER", rows, g_listSel, foot);
+            g_ui.drawList(g_vm, lang::t(lang::Str::LedgerTitle), rows, g_listSel, foot);
             break;
         }
         case Screen::Net: {
             std::vector<std::pair<std::string, std::string>> rows;
             buildNetRows(rows);
-            g_ui.drawList(g_vm, "NETWORK", rows, g_listSel, "; / .  scroll   ` back");
+            g_ui.drawList(g_vm, lang::t(lang::Str::NetTitle), rows, g_listSel, nullptr);
             break;
         }
         case Screen::Settings: {
@@ -630,18 +665,22 @@ void setup() {
     Serial.begin(115200);
     Serial.printf("\n[whale] DeepSeek Whale %s for Cardputer ADV\n", APP_VERSION);
 
+    // 先把配置读进来（此时还没画任何东西），语言才能在第一屏就正确。
+    // SD 挂载约 0.3s，这期间是黑屏，属于正常。
+    g_store.begin();
+    Serial.printf("[whale] SD: %s\n", g_store.sdStatus().c_str());
+    {
+        AppConfig loaded;
+        const bool hasCfg = g_store.load(loaded);
+        if (hasCfg) g_cfg = loaded;
+    }
+    lang::set(lang::fromCode(g_cfg.language.c_str()));
+
     if (!g_ui.begin()) {
         Serial.println("[whale] 离屏缓冲创建失败");
     }
-    bootStage("booting", "M5Cardputer ADV");
+    bootStage(lang::t(lang::Str::BootBooting), lang::t(lang::Str::BootBoard));
 
-    bootStage("SD card", "mounting /dswhale");
-    g_store.begin();
-    Serial.printf("[whale] SD: %s\n", g_store.sdStatus().c_str());
-
-    AppConfig loaded;
-    const bool hasCfg = g_store.load(loaded);
-    if (hasCfg) g_cfg = loaded;
     g_store.writeTemplateIfMissing(g_cfg);
     applyConfig();
 
@@ -654,17 +693,17 @@ void setup() {
     g_book.begin(ledger::scopeFromKey(g_cfg.apiKey), "CNY");
 
     if (!g_cfg.wifiSsid.empty()) {
-        bootStage("WiFi", g_cfg.wifiSsid.c_str());
+        bootStage(lang::t(lang::Str::BootWifi), g_cfg.wifiSsid.c_str());
         g_net.begin(g_cfg.wifiSsid, g_cfg.wifiPass);
         if (waitWifi(15000)) {
             waitTime(12000);
-            bootStage("balance", "GET /user/balance");
+            bootStage(lang::t(lang::Str::BootBalance), lang::t(lang::Str::BootBalanceUrl));
             doFetch(false);
         } else {
             Serial.println("[whale] WiFi 连接超时，进入主界面后自动重试");
         }
     } else {
-        bootStage("no WiFi config", "put config.json on the SD card");
+        bootStage(lang::t(lang::Str::BootNoWifiConfig), lang::t(lang::Str::BootPutConfig));
         Serial.println("[whale] 缺少 WiFi 配置，见 docs/CONFIG.md");
         delay(1500);
     }
@@ -691,7 +730,7 @@ void loop() {
     if (g_cfgDirty && now - g_cfgDirtyAt > 2500) {
         g_cfgDirty = false;
         const bool ok = g_store.save(g_cfg);
-        toast(ok ? "config saved" : "save failed");
+        toast(lang::t(ok ? lang::Str::ToastConfigSaved : lang::Str::ToastSaveFailed));
     }
 
     saveLedger(false);

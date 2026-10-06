@@ -60,6 +60,7 @@ bool ConfigStore::loadFromSd(AppConfig& out) {
     if (doc["bubble_auto_close_sec"].is<int>())
         out.bubbleAutoCloseSec = doc["bubble_auto_close_sec"].as<int>();
     if (doc["show_seconds"].is<bool>()) out.showSeconds = doc["show_seconds"].as<bool>();
+    if (doc["lang"].is<const char*>()) out.language = doc["lang"].as<const char*>();
     if (out.refreshSec < 15) out.refreshSec = 15;  // 别把 API 打爆
     return true;
 }
@@ -80,6 +81,7 @@ bool ConfigStore::saveToSd(const AppConfig& cfg) {
     doc["ledger_keep_days"] = cfg.ledgerKeepDays;
     doc["bubble_auto_close_sec"] = cfg.bubbleAutoCloseSec;
     doc["show_seconds"] = cfg.showSeconds;
+    doc["lang"] = cfg.language;
 
     const std::string tmp = configPath() + ".tmp";
     File f = SD.open(tmp.c_str(), FILE_WRITE);
@@ -98,11 +100,13 @@ bool ConfigStore::loadFromNvs(AppConfig& out) {
     const String ssid = prefs.getString("ssid", "");
     const String pass = prefs.getString("pass", "");
     const String key = prefs.getString("key", "");
+    const String lng = prefs.getString("lang", "");
     prefs.end();
     if (ssid.isEmpty() && key.isEmpty()) return false;
     out.wifiSsid = ssid.c_str();
     out.wifiPass = pass.c_str();
     out.apiKey = key.c_str();
+    if (!lng.isEmpty()) out.language = lng.c_str();
     return true;
 }
 
@@ -112,6 +116,7 @@ bool ConfigStore::saveToNvs(const AppConfig& cfg) {
     prefs.putString("ssid", cfg.wifiSsid.c_str());
     prefs.putString("pass", cfg.wifiPass.c_str());
     prefs.putString("key", cfg.apiKey.c_str());
+    prefs.putString("lang", cfg.language.c_str());
     prefs.end();
     return true;
 }

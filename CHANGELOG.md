@@ -16,6 +16,35 @@
 - AP 配网门户（手机填 WiFi 与 API key）
 - 主机侧单元测试补 `ledger`（需要给 `SD`/`File` 写内存桩；`money` / `pricing` 已有）
 
+## [1.1.0] - 2026-10-06
+
+### 新增
+
+- **中英双语界面**：所有界面文案（主屏 / 菜单 / 账本 / 网络诊断 / 设置 / 关于 / 冒泡 / 提示 /
+  启动页 / 报错）都做成中英双语。
+  - 切换方式：菜单 → `设置 → 语言`，或主屏直接按 `L`；保存在 `config.json` 的 `lang` 字段
+    （`"en"` / `"zh"`，默认 `en`），没插卡时存 NVS。
+  - 文案集中在 `src/lang.h` 的 `DSW_STRINGS` X-macro 表里：**一行一个 key + 两种语言**，
+    枚举与两张表同源，`static_assert` 保证不会漏翻。
+  - 字体跟随语言：中文用 M5GFX 自带的 `efontCN_12/16/24`（U8g2 子集字库），
+    英文继续用 `Font0` / `AsciiFont8x16` / `FreeSans9pt7b` / `Orbitron_Light_24`。
+  - UI 不再有写死的行高：菜单、列表、设置的可视行数与气泡高度都按当前字体实测，
+    中英各用各的排版（中文行高更大，可视行数自动变少）。
+  - 中文长句（冒泡台词）按像素宽度**折行**，UTF-8 按首字符整字切分，不会把汉字劈开。
+
+### 修复
+
+- **英文文案里的 `·` 渲染不出来**：`observed spend · N days`、`account · N day(s)`、
+  `MIT · upstream MIT` 用的是 ASCII 点阵字体，U+00B7 不在字库里 → 现在改成 `|` 与 `/`。
+  这个 bug 在 1.0.0 就存在，是被新增的 `tools/check-cjk-font.py` 抓出来的。
+
+### 工程
+
+- 新增 `tools/check-cjk-font.py`：直接解析 M5GFX 里 `lgfx_efont_cn.c` 的 U8g2 unicode 查找表，
+  静态校验「英文文案纯 ASCII + 中文字形全部命中字库」，CI 里跑。
+- 编译体积：**2,479,375 B / 3,342,336 B（74%）**，其中中文字库 +1.08MB
+  （12/16/24 三档分别是 +215KB / +318KB / +551KB）。`8M with spiffs (3MB APP)` 分区仍然够用。
+
 ## [1.0.0] - 2026-10-06
 
 首个版本：把上游 DSH 挂件的核心能力搬到 Cardputer ADV。
@@ -70,5 +99,6 @@
 - **模型名匹配漏了大小写归一**：上游 `priceFor()` 第一步是 `toLowerCase()`，
   移植时漏了 → 单测里加了一条 `DeepSeek-V4-Pro` 的用例锁住行为。
 
-[Unreleased]: https://github.com/seaison/DeepSeek-Whale-Cardputer/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/seaison/DeepSeek-Whale-Cardputer/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/seaison/DeepSeek-Whale-Cardputer/releases/tag/v1.1.0
 [1.0.0]: https://github.com/seaison/DeepSeek-Whale-Cardputer/releases/tag/v1.0.0

@@ -74,6 +74,8 @@ CI 会检查 `tests/golden/peak-2026.tsv` 与生成器的输出一致，防止�
 2. **Native tests**：`bash tests/run.sh`（外加 golden 与生成器的一致性检查）；
 3. **Compile**：`esp32:esp32:m5stack_cardputer` 下按 `PSRAM=enabled` 与 `PSRAM=disabled`
    两种开发板设置各编译一遍（`--warnings all`，本工程代码 0 告警），并上传固件 artifact。
+   这一步还跑 **中英文案字形检查**（`tools/check-cjk-font.py --strict`：英文必须纯 ASCII、
+   中文字必须命中 efont 字库）——它需要 M5GFX 源码在场，所以放在装了库的这一段。
 
 ## 四、没被自动测试覆盖的部分
 

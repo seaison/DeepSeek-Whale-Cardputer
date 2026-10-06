@@ -103,16 +103,62 @@ Boot ──► Main ──TAB──► Menu ──┬──► Ledger  ──`�
 
 | 项 | 占用 |
 |---|---|
-| Flash | **1,388,567 B / 3,342,336 B（41%）** |
-| 静态 DRAM | **52,008 B / 327,680 B（15%）** |
+| Flash | **2,479,375 B / 3,342,336 B（74%）** |
+| 静态 DRAM | **52,184 B / 327,680 B（15%）** |
 | 离屏缓冲 240×135×16bit | 64,800 B（放 PSRAM） |
 | TLS 握手瞬时堆 | ~35–45 KB |
 
 鲸鱼位图（9216 像素 × 2B = 18 KB）作为 `const` 数组直接在 flash 里，不占 RAM。
 
-> ⚠️ 因为固件约 1.39MB，**默认的 4MB 分区（1.2MB APP）装不下**，必须选 `8M with spiffs (3MB APP)` 或更大。
+其中中文字库是大头，按字号实测（arduino-cli 编译差值）：
 
-## 七、可测性
+| 字库 | 增量 |
+|---|---|
+| `efontCN_12`（小标签） | +215 KB |
+| `efontCN_16`（菜单 / 列表） | +318 KB |
+| `efontCN_24`（主数值 / 标题） | +551 KB |
+| **合计** | **+1.08 MB** |
+
+> ⚠️ 因为固件约 2.48MB（其中中文占 1.08MB），**默认的 4MB 分区（1.2MB APP）装不下**，必须选 `8M with spiffs (3MB APP)` 或更大。
+> 想把中文去掉省空间：删掉 `lang.cpp` 里的 `kFontsZh` 与 `lang.h` 的 `Zh` 分支即可（英文界面不依赖 efont）。
+
+## 七、中英双语怎么做的
+
+文案集中在一处：`src/lang.h` 的 `DSW_STRINGS` 宏表，**一行一个 key + 英文 + 中文**，
+枚举、英文表、中文表都由这一份列表生成（X-macro），所以
+
+- 漏翻不可能悄悄发生：`static_assert` 保证两张表长度等于枚举数；
+- 加一条文案 = 加一行，不需要动任何渲染代码。
+
+```cpp
+#define DSW_STRINGS(X)                                     \
+    X(Balance, "BALANCE", "余额")                           \
+    X(TodayUsed, "TODAY USED", "今日已用")                   \
+    ...                                                    \
+X 展开成三种东西：enum class Str、kEn[]、kZh[]
+```
+
+字体也跟着语言走（`lang::fonts()` 返回一个 `FontSet`）：
+
+| | small（标签） | mono（菜单/列表） | value（主数值） | title（启动页） |
+|---|---|---|---|---|
+| 英文 | `Font0` 6x8 | `AsciiFont8x16` | `FreeSans9pt7b` | `Orbitron_Light_24` |
+| 中文 | `efontCN_12` | `efontCN_16` | `efontCN_24` | `efontCN_24` |
+
+所以 **UI 里没有任何写死的行高**：菜单/列表/设置的可视行数、气泡高度、状态条文案宽度
+都是先 `setFont()` 再 `fontHeight()/textWidth()` 实测出来的，中英各用各的。
+
+两个由 CI 兜住的坑（见 `tools/check-cjk-font.py`）：
+
+1. **英文文案必须是纯 ASCII**。英文界面用的是点阵/矢量字体，出现 `·`（U+00B7）这类字符
+   会渲染成空白 —— 这个 bug 在加双语之前就存在（`observed spend · 3 days`），是被这个检查抓出来的。
+2. **中文的每个字都要在字库里**。`efontCN_*` 是 U8g2 子集字体（约 7428 字形），不是全字集。
+   检查器直接从 `M5GFX/src/lgfx/Fonts/efont/lgfx_efont_cn.c` 里解出 U8g2 的 unicode 查找表，
+   逐字核对（解析规则与 M5GFX `U8g2font::getGlyph()` 一致：记录里的长度字节是**整条记录**的字节数）。
+
+鲸鱼台词同理：`lang.cpp` 的 `kBubblePairs` 一行为 `{权重, 英文, 中文}`，中英一一对应。
+
+## 八、可测性
 
 纯函数模块可以脱离硬件验证：
 

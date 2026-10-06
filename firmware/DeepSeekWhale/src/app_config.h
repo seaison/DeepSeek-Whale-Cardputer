@@ -19,6 +19,7 @@ struct AppConfig {
     int ledgerKeepDays = 90;          // 账本保留天数（与上游 90 天口径一致）
     int bubbleAutoCloseSec = 12;      // 气泡自动关闭秒数，0 = 不自动关
     bool showSeconds = true;          // 时间显示到秒
+    std::string language = "en";      // 界面语言："en" / "zh"，见 lang.h
 };
 
 class ConfigStore {

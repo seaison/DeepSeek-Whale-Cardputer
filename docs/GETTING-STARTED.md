@@ -32,7 +32,7 @@ Arduino IDE → **工具**：
 |---|---|---|
 | Board | **M5Cardputer** | ADV 没有单独的板型，运行时会自动识别成 `board_M5CardputerADV` |
 | PSRAM | **QSPI PSRAM** | 240×135×16bit 的离屏缓冲约 65KB，放 PSRAM 里给 TLS 留出内部 RAM |
-| Partition Scheme | **8M with spiffs (3MB APP/1.5MB SPIFFS)** | ⚠️ **必选**：默认 4MB 分区只有 1.2MB APP，这个固件约 1.39MB，**装不下** |
+| Partition Scheme | **8M with spiffs (3MB APP/1.5MB SPIFFS)** | ⚠️ **必选**：默认 4MB 分区只有 1.2MB APP，这个固件约 2.48MB（中文字库占约 1.08MB），**装不下** |
 | USB CDC On Boot | **Enabled** | 串口日志 |
 | Upload Speed | 921600 或更高 | 快一点 |
 
@@ -121,6 +121,7 @@ Sketch uses ... Maximum is 1310720 bytes
 | `;` `w` / `.` `s` | 上下（长按连发）；ADV 上也可用 `FN` + `;` `.` `,` `/` |
 | `,` `a` / `/` `d` | 左右（设置项调值） |
 | `R` | 立即刷新余额 |
+| `L` | 中英切换（菜单 → 设置 → 语言 也能切） |
 
 ## 七、串口日志
 

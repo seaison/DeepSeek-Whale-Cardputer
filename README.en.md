@@ -43,6 +43,7 @@ weekend/holiday valley pricing).
 | 📒 **Ledger** | Per-day observed spend in `/dswhale/ledger.json`, written atomically, **bucketed per API-key fingerprint** (switching keys never loses history) |
 | 🔊 **Sound** | Runtime-synthesized tones (no third-party audio assets are bundled); drop a wav on the SD card to override |
 | 🗂️ **Config** | `/dswhale/config.json` on SD, falling back to NVS when no card is inserted |
+| 🌐 **Chinese / English** | Every UI string exists in both languages — switch in `Settings → Language` (or press `L` on the main screen); persisted as `lang` in `config.json`. Chinese uses M5GFX's bundled efont subset; glyph coverage is checked statically in CI |
 | 🔐 **TLS** | **Two** roots pinned (DigiCert Global Root G2 + Amazon Root CA 1) — DeepSeek serves *different* chains inside and outside mainland China, so pinning only one breaks the other region. Can be disabled for MITM proxies |
 
 ## Requirements
@@ -60,7 +61,7 @@ Board settings (Arduino IDE → Tools):
 |---|---|
 | Board | **M5Cardputer** |
 | PSRAM | **QSPI PSRAM** |
-| Partition Scheme | **8M with spiffs (3MB APP/1.5MB SPIFFS)** ⚠️ required — the firmware is ~1.39 MB |
+| Partition Scheme | **8M with spiffs (3MB APP/1.5MB SPIFFS)** ⚠️ required — the firmware is ~2.48 MB (74%) |
 | USB CDC On Boot | Enabled |
 
 ```bash
@@ -74,9 +75,12 @@ Create `/dswhale/config.json` on the SD card:
 {
   "wifi": { "ssid": "YourWiFi", "pass": "YourPassword" },
   "api_key": "sk-...",
-  "refresh_sec": 60
+  "refresh_sec": 60,
+  "lang": "en"
 }
 ```
+
+`lang` is `"en"` (default) or `"zh"`; you can also switch it on the device via `Settings → Language`.
 
 Host-side unit tests (no hardware needed): `bash tests/run.sh`. See [tests/README.md](tests/README.md).
 
@@ -93,6 +97,7 @@ Full field reference: [docs/CONFIG.md](docs/CONFIG.md) (Chinese). Troubleshootin
 | `;` `w` / `.` `s` | Up / down (also `FN` + `;` `.` `,` `/`); hold to repeat |
 | `,` `a` / `/` `d` | Left / right (adjust settings) |
 | `R` | Refresh now |
+| `L` | Toggle Chinese / English |
 
 ## Known limitations
 
