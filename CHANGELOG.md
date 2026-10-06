@@ -16,6 +16,17 @@
 - AP 配网门户（手机填 WiFi 与 API key）
 - 主机侧单元测试补 `ledger`（需要给 `SD`/`File` 写内存桩；`money` / `pricing` 已有）
 
+## [1.2.1] - 2026-10-06
+
+### 改进
+
+- **旋转时鲸鱼不再带一个黑方块**：位图背景是纯黑，改成按「黑=透明键」贴图。
+  先验证过图里**没有被内容完全包围的纯黑像素**（0 个），所以不会在鲸鱼身上打洞；
+  静态与旋转两条路径都走同一个透明键，观感一致。
+- **空闲时不再 5fps 全屏重绘**：以前内容没变也每秒推 5 次整屏，既费电又更容易
+  看出撕裂。现在时钟每秒（关掉秒显示则每分钟）跳一次时才重绘，按键/数据变化
+  与旋转动画仍然即时（动画期间 ~33fps）。
+
 ## [1.2.0] - 2026-10-06
 
 ### 修复
@@ -135,7 +146,8 @@
 - **模型名匹配漏了大小写归一**：上游 `priceFor()` 第一步是 `toLowerCase()`，
   移植时漏了 → 单测里加了一条 `DeepSeek-V4-Pro` 的用例锁住行为。
 
-[Unreleased]: https://github.com/seaison/DeepSeek-Whale-Cardputer/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/seaison/DeepSeek-Whale-Cardputer/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/seaison/DeepSeek-Whale-Cardputer/releases/tag/v1.2.1
 [1.2.0]: https://github.com/seaison/DeepSeek-Whale-Cardputer/releases/tag/v1.2.0
 [1.1.0]: https://github.com/seaison/DeepSeek-Whale-Cardputer/releases/tag/v1.1.0
 [1.0.0]: https://github.com/seaison/DeepSeek-Whale-Cardputer/releases/tag/v1.0.0

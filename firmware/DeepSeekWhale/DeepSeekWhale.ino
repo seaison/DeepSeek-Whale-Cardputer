@@ -27,7 +27,7 @@
 #include "src/sound.h"
 #include "src/ui.h"
 
-#define APP_VERSION "1.2.0"
+#define APP_VERSION "1.2.1"
 
 // ============================ 全局状态 ============================
 static AppConfig g_cfg;
@@ -50,6 +50,7 @@ static uint32_t g_lastLedgerSaveMs = 0;
 
 static uint32_t g_lastRenderMs = 0;
 static bool g_forceRender = true;
+static int64_t g_lastTick = -1;  // 秒（或分）桶，用来驱动时钟刷新
 
 static bool g_cfgDirty = false;
 static uint32_t g_cfgDirtyAt = 0;
@@ -633,6 +634,15 @@ static void buildNetRows(std::vector<std::pair<std::string, std::string>>& rows)
 
 static void render() {
     const uint32_t now = millis();
+
+    // 时钟每秒（show_seconds 关掉时每分钟）跳一次 → 只在这种时候才重绘。
+    // 以前是固定 5fps 全屏重绘：内容没变也推屏，既费电又更容易看出撕裂。
+    const int64_t tick = g_net.timeSynced() ? g_net.nowUtc() : (int64_t)(now / 1000);
+    const int64_t bucket = g_cfg.showSeconds ? tick : tick / 60;
+    if (bucket != g_lastTick) {
+        g_lastTick = bucket;
+        g_forceRender = true;
+    }
 
     // 旋转动画：420ms 转满 360°，动画期间把刷新间隔压到 30ms
     float angle = 0.0f;

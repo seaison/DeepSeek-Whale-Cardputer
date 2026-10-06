@@ -148,8 +148,11 @@ void Ui::panel(int x, int y, int w, int h, uint16_t fill, uint16_t border) {
 }
 
 void Ui::whale(int x, int y) {
+    // 位图背景是纯黑，按「黑=透明」贴：画框底色比纯黑略亮，不透明时旋转会看到
+    // 一个转动的黑方块。（检查过：图里没有被内容完全包围的纯黑像素，不会打洞。）
+    constexpr uint16_t kTransparent = 0x0000;
     if (fabsf(whaleAngle_) < 0.5f) {
-        canvas_.pushImage(x, y, WHALE_96_W, WHALE_96_H, whale_96);
+        canvas_.pushImage(x, y, WHALE_96_W, WHALE_96_H, whale_96, kTransparent);
         return;
     }
     // 旋转时同时缩一点：96x96 转到 45° 时外接框是 136px，会戳出 100px 的画框；
@@ -158,7 +161,7 @@ void Ui::whale(int x, int y) {
     const float zoom = 1.0f - 0.32f * t;
     canvas_.pushImageRotateZoom(x + WHALE_96_W / 2.0f, y + WHALE_96_H / 2.0f,
                                 WHALE_96_W / 2.0f, WHALE_96_H / 2.0f, whaleAngle_, zoom, zoom,
-                                WHALE_96_W, WHALE_96_H, whale_96);
+                                WHALE_96_W, WHALE_96_H, whale_96, kTransparent);
 }
 
 void Ui::statusBar(const ViewModel& vm, const char* rightBadge, uint16_t badgeColor) {
