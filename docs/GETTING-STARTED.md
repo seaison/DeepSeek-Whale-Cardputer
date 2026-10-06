@@ -12,6 +12,18 @@
    - `ArduinoJson`（≥ 7.x）
 5. microSD 卡（FAT32），强烈建议插上
 
+### 打开工程
+
+sketch 在 `firmware/DeepSeekWhale/`（Arduino 要求 **sketch 目录名与 `.ino` 同名**，
+所以仓库根目录不能直接当 sketch——仓库名带连字符）：
+
+```bash
+git clone https://github.com/seaison/DeepSeek-Whale-Cardputer.git
+# Arduino IDE：File → Open → DeepSeek-Whale-Cardputer/firmware/DeepSeekWhale/DeepSeekWhale.ino
+```
+
+克隆到哪个目录名都无所谓——只要打开的是 `firmware/DeepSeekWhale/` 这一层。
+
 ## 二、开发板设置
 
 Arduino IDE → **工具**：

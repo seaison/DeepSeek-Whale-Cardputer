@@ -55,7 +55,17 @@
 | Partition Scheme | **8M with spiffs (3MB APP/1.5MB SPIFFS)** |
 | USB CDC On Boot | Enabled |
 
-### 2. 命令行编译 / 上传
+### 2. 打开工程
+
+Sketch 位于 `firmware/DeepSeekWhale/`（Arduino 要求 **sketch 目录名与 `.ino` 同名**，
+仓库名带连字符所以不能直接当 sketch；克隆到任何目录名都不影响）：
+
+```bash
+git clone https://github.com/seaison/DeepSeek-Whale-Cardputer.git
+# Arduino IDE：File → Open → .../firmware/DeepSeekWhale/DeepSeekWhale.ino
+```
+
+### 3. 命令行编译 / 上传
 
 ```bash
 # 编译
@@ -70,7 +80,7 @@ arduino-cli upload \
   firmware/DeepSeekWhale
 ```
 
-### 3. 配置 WiFi 与 API key
+### 4. 配置 WiFi 与 API key
 
 把 SD 卡插到电脑上，新建 `/dswhale/config.json`：
 
@@ -86,7 +96,7 @@ arduino-cli upload \
 
 API key 在 <https://platform.deepseek.com/api_keys> 申请；余额接口**只读**，不会产生任何调用费用。
 
-### 4. 开机
+### 5. 开机
 
 1. 插卡 → 上电
 2. 自动挂载 SD → 连 WiFi → NTP 对时 → 拉一次余额
