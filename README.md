@@ -33,7 +33,7 @@
 | 📒 **账本** | 逐日「已观测消费」，SD 卡 `/dswhale/ledger.json`，原子写入；**按 API key 指纹分本**（换 key 不丢历史） |
 | 🔊 **音效** | 内置合成音（按键 / 完成 / 报错），不打包任何第三方素材；想用自定义音效就把 wav 放进 SD 卡 |
 | 🗂️ **配置** | SD 卡 `/dswhale/config.json` 为主，**没插卡自动退回 NVS**，拔卡也能跑 |
-| 🔐 **TLS** | 内置 DigiCert Global Root G2 根证书校验证书；需要中间人代理时可关（见配置文档） |
+| 🔐 **TLS** | 内置**两个**根证书（DigiCert Global Root G2 / Amazon Root CA 1）——DeepSeek 国内外返回的证书链不一样，只钉一个会让另一边的用户握手失败；需要中间人代理时可关（见配置文档） |
 
 ## 硬件与开发环境
 
@@ -119,10 +119,10 @@ DeepSeekWhale/
 │   ├── bubbles.{h,cpp}        # 鲸鱼台词与点击序列
 │   ├── sound.{h,cpp}          # 合成音 + SD 上的自定义 wav
 │   ├── money.h                # 定点金额工具（1e-8 元）
-│   ├── root_ca.h              # DigiCert Global Root G2
+│   ├── root_ca.h              # 内置根证书（DigiCert G2 + Amazon Root CA 1）
 │   └── assets/whale_96.h      # 生成的 96x96 RGB565 位图
 ├── assets/                    # 原始位图 bin（as-is，见 NOTICE.md）
-├── tools/                     # bin2header / bin2png / 节假日与证书自检
+├── tools/                     # bin2header / bin2png / 根证书生成 / 节假日与证书自检
 ├── docs/                      # 上手、配置、架构、移植对照
 └── .github/workflows/ci.yml   # GitHub Actions：arduino-cli 编译
 ```

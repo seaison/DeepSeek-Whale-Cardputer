@@ -33,6 +33,9 @@ jobs:
       - name: 证书链是否仍由内置根签发
         run: bash tools/check-cert-chain.sh
 
+      - name: 内置根证书与 tools/certs/*.pem 一致
+        run: python3 tools/make-root-ca.py --check
+
       - name: 生成的位图头文件与 assets/*.bin 一致
         run: |
           python3 tools/bin2header.py \
@@ -43,7 +46,8 @@ jobs:
 
       - name: Python 工具语法自检
         run: |
-          python3 -m py_compile tools/bin2header.py tools/bin2png.py tools/check-holidays.py
+          python3 -m py_compile tools/bin2header.py tools/bin2png.py \
+            tools/check-holidays.py tools/make-root-ca.py
 
       - name: 位图能还原成 PNG（尺寸/字节序自检）
         run: |

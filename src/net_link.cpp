@@ -125,6 +125,8 @@ bool NetLink::fetchBalance(const std::string& apiKey, bool tlsVerify, BalanceSna
     WiFiClientSecure client;
     client.setHandshakeTimeout(10);
     if (verify) {
+        // kRootCaPem 里是**多张**根证书拼成的一段 PEM（国内 DigiCert G2 / 海外 Amazon Root CA 1），
+        // mbedtls 一次解析全部，见 src/root_ca.h 与 tools/certs/README.md。
         client.setCACert(kRootCaPem);
     } else {
         client.setInsecure();

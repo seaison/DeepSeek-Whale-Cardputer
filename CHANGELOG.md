@@ -42,7 +42,9 @@
 - **设置界面**：亮度 / 音效 / 音量 / 刷新间隔 / TLS 校验 / 气泡秒数 / 时钟秒，改动 2.5 秒后自动落盘。
 - **存储**：`/dswhale/config.json`（SD 优先）+ NVS 兜底；`/dswhale/ledger.json` 原子写入
   （`.tmp` → `remove` → `rename`）。
-- **TLS**：内置 DigiCert Global Root G2 根证书校验 `api.deepseek.com`；NTP 未同步或需要中间人代理时自动/手动降级。
+- **TLS**：内置**两个**根证书校验 `api.deepseek.com`——DigiCert Global Root G2（中国大陆实测链路）
+  与 Amazon Root CA 1（海外实测链路）；只钉一个会让另一边的用户握手失败。
+  NTP 未同步或需要中间人代理时自动/手动降级。
 - **音效**：运行期合成（按键 / 完成 / 报错），支持 SD 上的 `task_end.wav` 覆盖；**不打包**任何第三方素材。
 - **工具**：`tools/bin2header.py`（裸位图 → C 头）、`tools/bin2png.py`（裸位图 → PNG 预览）、
   `tools/check-holidays.py`（节假日表覆盖自检）、`tools/check-cert-chain.sh`（证书链复核）。

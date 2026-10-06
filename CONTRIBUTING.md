@@ -83,8 +83,16 @@ chore(ci): 缓存 esp32 core
 
 ### 证书
 
-`src/root_ca.h` 是 `api.deepseek.com` 的链根（DigiCert Global Root G2，有效期到 2038）。
-`tools/check-cert-chain.sh` 会联网复核链根与内置根是否一致——**换根时记得同步这个文件**。
+`src/root_ca.h` 由 `tools/make-root-ca.py` 从 `tools/certs/*.pem` 生成（**不要手改**），目前内置两个根：
+DigiCert Global Root G2 与 Amazon Root CA 1（有效期都到 2038）。
+
+```bash
+bash tools/check-cert-chain.sh          # 联网复核链根是否命中内置根（CI 会跑）
+python3 tools/make-root-ca.py --check   # 校验 root_ca.h 与 tools/certs/ 一致（CI 会跑）
+```
+
+发现链根变了（例如 DeepSeek 换了 CDN）：把新 PEM 放进 `tools/certs/`，跑一次 `make-root-ca.py`，
+提交时把新 PEM 和重新生成的头文件一起带上。
 
 ### 素材与许可
 

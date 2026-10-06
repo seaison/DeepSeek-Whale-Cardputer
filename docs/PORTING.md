@@ -17,7 +17,7 @@
 | 点击序列（首次泡 → 队列 → 随机台词） | `bubbles.cpp` | 队列顺序对齐（余额 → 今日 → 峰谷 → 随机），30 秒不点回到第 1 项；随机台词**不连续重复**、带权重（上游是「并列加权选择」的简化版） |
 | 每个事件一个音效 | `sound.cpp` | 合成音（按键 / 完成 / 报错），支持 SD 上的自定义 wav 覆盖 |
 | 原子写账本 | `ledger.cpp::saveToFile()` | 写 `.tmp` → `remove` → `rename`（上游也是原子写入 + 备份） |
-| 证书校验 | `root_ca.h` + `WiFiClientSecure::setCACert` | `api.deepseek.com` 的链根是 DigiCert Global Root G2；上游在宿主里走 Node 的信任链 |
+| 证书校验 | `root_ca.h` + `WiFiClientSecure::setCACert` | 实测 `api.deepseek.com` **国内外链根不同**（大陆 → DigiCert Global Root G2，海外 → Amazon Root CA 1），所以内置两个根、拼成一段 PEM 交给 mbedtls 解析；上游在宿主里走 Node 的系统信任链，不需要关心这个 |
 | 只读接口不产生费用 | 同 | 余额查询是 GET，不消耗 token |
 
 ## 二、换了个实现（能力等价或更简单）

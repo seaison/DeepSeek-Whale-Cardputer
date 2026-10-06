@@ -38,7 +38,7 @@ weekend/holiday valley pricing).
 | 📒 **Ledger** | Per-day observed spend in `/dswhale/ledger.json`, written atomically, **bucketed per API-key fingerprint** (switching keys never loses history) |
 | 🔊 **Sound** | Runtime-synthesized tones (no third-party audio assets are bundled); drop a wav on the SD card to override |
 | 🗂️ **Config** | `/dswhale/config.json` on SD, falling back to NVS when no card is inserted |
-| 🔐 **TLS** | DigiCert Global Root G2 pinned for `api.deepseek.com` (can be disabled for MITM proxies) |
+| 🔐 **TLS** | **Two** roots pinned (DigiCert Global Root G2 + Amazon Root CA 1) — DeepSeek serves *different* chains inside and outside mainland China, so pinning only one breaks the other region. Can be disabled for MITM proxies |
 
 ## Requirements
 

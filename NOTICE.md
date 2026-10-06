@@ -64,7 +64,7 @@ SOFTWARE.
 | [M5Unified](https://github.com/m5stack/M5Unified) / [M5GFX](https://github.com/m5stack/M5GFX) / [M5Cardputer](https://github.com/m5stack/M5Cardputer) | MIT | 硬件抽象、显示、键盘 |
 | [ArduinoJson](https://github.com/bblanchon/ArduinoJson) | MIT | 配置 / 账本 / 接口 JSON |
 | arduino-esp32 | LGPL-2.1 | ESP32 平台核心 |
-| DigiCert Global Root G2 证书 | 公共根证书（DigiCert 发布） | `src/root_ca.h`，用于校验证书链 |
+| DigiCert Global Root G2 / Amazon Root CA 1 证书 | 公共根证书（DigiCert / Amazon 发布） | `src/root_ca.h`（由 `tools/certs/*.pem` 生成），用于校验 `api.deepseek.com` 的证书链 |
 
 ## 六、权利主张
 

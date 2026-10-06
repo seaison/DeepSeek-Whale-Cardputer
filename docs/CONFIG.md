@@ -26,7 +26,7 @@
 | `brightness` | int | `128` | 16–255 | 屏幕亮度 |
 | `sound` | bool | `true` | — | 音效总开关 |
 | `volume` | int | `110` | 0–255 | 音量 |
-| `tls_verify` | bool | `true` | — | 是否校验 `api.deepseek.com` 的根证书（`src/root_ca.h` 内置 DigiCert Global Root G2）。**注意**：证书校验需要正确时间，NTP 未同步时会自动跳过校验 |
+| `tls_verify` | bool | `true` | — | 是否校验 `api.deepseek.com` 的根证书。`src/root_ca.h` 内置**两个**根（DigiCert Global Root G2 与 Amazon Root CA 1）——DeepSeek 在国内与海外走不同证书链，两个都要带。**注意**：证书校验需要正确时间，NTP 未同步时会自动跳过校验 |
 | `ledger_keep_days` | int | `90` | 1–3650 | 账本保留天数（与上游 90 天口径一致），超期逐日记录会被裁掉 |
 | `bubble_auto_close_sec` | int | `12` | 0–120 | 气泡自动关闭秒数，`0` = 不自动关（按键才关） |
 | `show_seconds` | bool | `true` | — | 状态栏时钟是否显示秒 |
