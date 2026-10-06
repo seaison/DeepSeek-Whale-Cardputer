@@ -27,7 +27,7 @@
 #include "src/sound.h"
 #include "src/ui.h"
 
-#define APP_VERSION "1.2.1"
+#define APP_VERSION "1.2.2"
 
 // ============================ 全局状态 ============================
 static AppConfig g_cfg;
@@ -59,10 +59,52 @@ static bool g_bubbleOn = false;
 static uint32_t g_bubbleUntilMs = 0;
 static bubbles::Bubble g_bubble;
 
-// 点按鲸鱼的 360° 旋转动画
-static bool g_spinning = false;
-static uint32_t g_spinStartMs = 0;
-static constexpr uint32_t kWhaleSpinMs = 420;  // 一圈用时
+// 点按鲸鱼的回弹动画（Q 弹）：底部固定，先压扁、再弹起过冲一点、最后稳定。
+// 关键帧刻意压在 sy ≤ 1.015 / sx ≤ 1.02 —— 再大就戳出 100px 的画框了
+// （鲸鱼画在 (5,20)，画框 18..118；sy=1.015 时顶端 18.6，还剩 0.5px 余量）。
+static bool g_bouncing = false;
+static uint32_t g_bounceStartMs = 0;
+static constexpr uint32_t kWhaleBounceMs = 320;
+
+struct BounceKey {
+    float t;   // 0..1 归一化进度
+    float sx;  // 横向缩放
+    float sy;  // 纵向缩放
+};
+static const BounceKey kBounceKeys[] = {
+    {0.00f, 1.000f, 1.000f},  // 起始
+    {0.14f, 1.020f, 0.840f},  // 按下去：压扁、横向微胀
+    {0.45f, 0.980f, 1.015f},  // 弹起：略微过冲
+    {0.74f, 1.005f, 0.975f},  // 小回弹
+    {1.00f, 1.000f, 1.000f},  // 稳定
+};
+
+// 在关键帧之间用 smoothstep 插值，避免折线的生硬感。
+static void bounceScales(float t, float& sx, float& sy) {
+    const size_t n = sizeof(kBounceKeys) / sizeof(kBounceKeys[0]);
+    if (t <= 0.0f) {
+        sx = kBounceKeys[0].sx;
+        sy = kBounceKeys[0].sy;
+        return;
+    }
+    if (t >= 1.0f) {
+        sx = 1.0f;
+        sy = 1.0f;
+        return;
+    }
+    for (size_t i = 1; i < n; ++i) {
+        if (t <= kBounceKeys[i].t) {
+            const float span = kBounceKeys[i].t - kBounceKeys[i - 1].t;
+            float u = span > 0.0f ? (t - kBounceKeys[i - 1].t) / span : 0.0f;
+            u = u * u * (3.0f - 2.0f * u);
+            sx = kBounceKeys[i - 1].sx + (kBounceKeys[i].sx - kBounceKeys[i - 1].sx) * u;
+            sy = kBounceKeys[i - 1].sy + (kBounceKeys[i].sy - kBounceKeys[i - 1].sy) * u;
+            return;
+        }
+    }
+    sx = 1.0f;
+    sy = 1.0f;
+}
 
 // 按键边沿的最小间隔（防抖：一次物理按下只触发一次动作）
 static uint32_t s_lastCharMs = 0;
@@ -262,9 +304,9 @@ static void showBubble(bool advance) {
                           ? millis() + (uint32_t)g_cfg.bubbleAutoCloseSec * 1000u
                           : 0;
     sound::whaleClick();  // 点鲸鱼的声音和普通按键分开
-    if (g_cfg.whaleSpin) {
-        g_spinning = true;
-        g_spinStartMs = millis();
+    if (g_cfg.whaleBounce) {
+        g_bouncing = true;
+        g_bounceStartMs = millis();
     }
     g_forceRender = true;
 }
@@ -284,7 +326,7 @@ enum SettingId {
     kSetBubbleClose,
     kSetSeconds,
     kSetLanguage,
-    kSetWhaleSpin,
+    kSetWhaleBounce,
     kSetSave,
     kSetCount,
 };
@@ -295,7 +337,7 @@ static void settingLabels(std::vector<std::string>& labels, std::vector<std::str
               lang::t(lang::Str::SetVolume),     lang::t(lang::Str::SetRefresh),
               lang::t(lang::Str::SetTls),        lang::t(lang::Str::SetBubbleClose),
               lang::t(lang::Str::SetSeconds),    lang::t(lang::Str::SetLanguage),
-              lang::t(lang::Str::SetWhaleSpin),  lang::t(lang::Str::SetSave)};
+              lang::t(lang::Str::SetWhaleBounce),  lang::t(lang::Str::SetSave)};
     const char* on = lang::t(lang::Str::ValOn);
     const char* off = lang::t(lang::Str::ValOff);
     values.clear();
@@ -311,7 +353,7 @@ static void settingLabels(std::vector<std::string>& labels, std::vector<std::str
     values.push_back(buf);
     values.push_back(g_cfg.showSeconds ? on : off);
     values.push_back(lang::t(lang::Str::ValLangName));  // English / 中文
-    values.push_back(g_cfg.whaleSpin ? on : off);
+    values.push_back(g_cfg.whaleBounce ? on : off);
     values.push_back("-");
 }
 
@@ -350,8 +392,8 @@ static void adjustSetting(int dir) {
         case kSetLanguage:
             toggleLanguage();
             break;
-        case kSetWhaleSpin:
-            g_cfg.whaleSpin = !g_cfg.whaleSpin;
+        case kSetWhaleBounce:
+            g_cfg.whaleBounce = !g_cfg.whaleBounce;
             break;
         case kSetSave: {
             const bool ok = g_store.save(g_cfg);
@@ -481,7 +523,7 @@ static void handleEnter() {
             if (g_setSel == kSetSave) {
                 adjustSetting(0);
             } else if (g_setSel == kSetSound || g_setSel == kSetTls || g_setSel == kSetSeconds ||
-                       g_setSel == kSetLanguage || g_setSel == kSetWhaleSpin) {
+                       g_setSel == kSetLanguage || g_setSel == kSetWhaleBounce) {
                 adjustSetting(0);
             }
             break;
@@ -571,7 +613,7 @@ static void activateMenu() {
             toast(lang::t(lang::Str::ToastRebooting));
             fillVm();
             g_ui.setToast(g_toastText);
-            g_ui.setWhaleAngle(0.0f);
+            g_ui.setWhaleBounce(1.0f, 1.0f);
             g_ui.drawMain(g_vm);
             delay(400);
             ESP.restart();
@@ -644,20 +686,20 @@ static void render() {
         g_forceRender = true;
     }
 
-    // 旋转动画：420ms 转满 360°，动画期间把刷新间隔压到 30ms
-    float angle = 0.0f;
-    if (g_spinning) {
-        const uint32_t elapsed = now - g_spinStartMs;
-        if (elapsed >= kWhaleSpinMs) {
-            g_spinning = false;  // 结束时角度正好回到 0，不会跳
+    // 回弹动画：320ms，动画期间把刷新间隔压到 30ms
+    float sx = 1.0f, sy = 1.0f;
+    if (g_bouncing) {
+        const uint32_t elapsed = now - g_bounceStartMs;
+        if (elapsed >= kWhaleBounceMs) {
+            g_bouncing = false;  // 结束时缩放正好回到 1.0，不会跳
         } else {
-            angle = 360.0f * (float)elapsed / (float)kWhaleSpinMs;
+            bounceScales((float)elapsed / (float)kWhaleBounceMs, sx, sy);
         }
     }
-    if (!g_forceRender && now - g_lastRenderMs < (g_spinning ? 30u : 200u)) return;
+    if (!g_forceRender && now - g_lastRenderMs < (g_bouncing ? 30u : 200u)) return;
     g_lastRenderMs = now;
     g_forceRender = false;
-    g_ui.setWhaleAngle(angle);
+    g_ui.setWhaleBounce(sx, sy);
 
     fillVm();
     if (g_toastOn && now > g_toastUntilMs) g_toastOn = false;

@@ -61,7 +61,12 @@ bool ConfigStore::loadFromSd(AppConfig& out) {
         out.bubbleAutoCloseSec = doc["bubble_auto_close_sec"].as<int>();
     if (doc["show_seconds"].is<bool>()) out.showSeconds = doc["show_seconds"].as<bool>();
     if (doc["lang"].is<const char*>()) out.language = doc["lang"].as<const char*>();
-    if (doc["whale_spin"].is<bool>()) out.whaleSpin = doc["whale_spin"].as<bool>();
+    // whale_bounce 为准；whale_spin 是 1.2.x 用过的旧键，读到也认
+    if (doc["whale_bounce"].is<bool>()) {
+        out.whaleBounce = doc["whale_bounce"].as<bool>();
+    } else if (doc["whale_spin"].is<bool>()) {
+        out.whaleBounce = doc["whale_spin"].as<bool>();
+    }
     if (out.refreshSec < 15) out.refreshSec = 15;  // 别把 API 打爆
     return true;
 }
@@ -83,7 +88,7 @@ bool ConfigStore::saveToSd(const AppConfig& cfg) {
     doc["bubble_auto_close_sec"] = cfg.bubbleAutoCloseSec;
     doc["show_seconds"] = cfg.showSeconds;
     doc["lang"] = cfg.language;
-    doc["whale_spin"] = cfg.whaleSpin;
+    doc["whale_bounce"] = cfg.whaleBounce;
 
     const std::string tmp = configPath() + ".tmp";
     File f = SD.open(tmp.c_str(), FILE_WRITE);

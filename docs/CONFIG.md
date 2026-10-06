@@ -31,7 +31,10 @@
 | `bubble_auto_close_sec` | int | `12` | 0–120 | 气泡自动关闭秒数，`0` = 不自动关（按键才关） |
 | `show_seconds` | bool | `true` | — | 状态栏时钟是否显示秒 |
 | `lang` | string | `"en"` | `"en"` / `"zh"` | 界面语言。`"zh"` 走 M5GFX 自带的 efont 中文字库；设备上也能切：菜单 → `设置 → 语言`，或主屏按 `L` |
-| `whale_spin` | bool | `true` | — | 点按鲸鱼（或按 `ENTER`/空格）时是否播放 360° 旋转动画 |
+| `whale_bounce` | bool | `true` | — | 点按鲸鱼（或按 `ENTER`/空格）时是否播放回弹（Q 弹）动画 |
+
+> 1.2.x 期间这个键曾叫 `whale_spin`（当时是 360° 旋转）。现在以 `whale_bounce` 为准，
+> 但读到旧的 `whale_spin` 也会认，不用手动改卡里的配置。
 
 ### 示例
 
@@ -48,7 +51,7 @@
   "bubble_auto_close_sec": 12,
   "show_seconds": true,
   "lang": "zh",
-  "whale_spin": true
+  "whale_bounce": true
 }
 ```
 

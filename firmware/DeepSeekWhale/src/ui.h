@@ -72,8 +72,13 @@ public:
     bool begin();  // 建离屏缓冲；失败返回 false
     M5Canvas& canvas() { return canvas_; }
 
-    // 鲸鱼旋转角度（度）。0 = 不转；点按鲸鱼时由 .ino 驱动一个 0→360 的动画。
-    void setWhaleAngle(float deg) { whaleAngle_ = deg; }
+    // 点按鲸鱼的回弹缩放（1.0 = 原尺寸）。sx/sy 分开控制横向/纵向，
+    // 而且**底部中点固定** —— 所以压扁时是「往下坐」而不是整体缩小。
+    // .ino 在 300ms 里把这一对值从 1.0 走一圈再回到 1.0。
+    void setWhaleBounce(float sx, float sy) {
+        whaleSx_ = sx;
+        whaleSy_ = sy;
+    }
 
     // 提示条（toast）。各屏在**推屏前**统一画一次，避免「先推底图、再推提示」闪一下。
     // 传 nullptr 表示不显示。
@@ -104,7 +109,8 @@ private:
 
     M5Canvas canvas_{&M5Cardputer.Display};
     bool ready_ = false;
-    float whaleAngle_ = 0.0f;
+    float whaleSx_ = 1.0f;
+    float whaleSy_ = 1.0f;
     char toastText_[64] = {};
     bool toastOn_ = false;
 };
