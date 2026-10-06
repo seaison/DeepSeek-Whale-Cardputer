@@ -17,7 +17,8 @@
 | `firmware/DeepSeekWhale/src/bubbles.cpp` | 概念对应上游的「点击序列」（首次点击泡 → 队列 → 随机台词）；台词为**本工程重写**（英文） | MIT |
 | `firmware/DeepSeekWhale/src/ui.{h,cpp}`、`DeepSeekWhale.ino`、`firmware/DeepSeekWhale/src/app_config.*`、`firmware/DeepSeekWhale/src/net_link.*`、`firmware/DeepSeekWhale/src/sound.*` | 本工程原创（设备端 UI / 配置 / 网络状态机 / 音效） | MIT |
 | `assets/whale_96x96_rgb565.bin` | 由上游 `assets/DSniang1.png`（小鲸鱼本体）经使用者本地处理后得到的 96×96 RGB565 裸位图 | **不适用 MIT**：上游声明为「as-is，不授予再许可」 |
-| `docs/images/whale_96.png` | 由上面那个 bin 渲染出的预览图 | 同上 |
+| `docs/images/whale-avatar.png` | 小鲸鱼形象原图（610×610 PNG，透明背景），README 顶部展示用 | 同上 |
+| `docs/images/whale-sprite-96.png` | 由上面那个 bin 渲染出的 96×96 预览图（设备上实际显示的样子） | 同上 |
 | `firmware/DeepSeekWhale/src/assets/whale_96.h` | 由 `tools/bin2header.py` 从上面的 bin 生成 | 同上（位图数据的另一种编码） |
 
 **本工程不包含**上游 `assets/` 下的 mp3 / wav / gif 素材，也不包含其 PNG 原图——那些素材不在 MIT 覆盖范围内。设备端音效改为**运行期合成**（`firmware/DeepSeekWhale/src/sound.cpp`）；想用上游的原声，请自行把 wav 放进 SD 卡（见 `docs/CONFIG.md`）。

@@ -4,7 +4,7 @@
 
 **把 DSH 网页右下角的「余额小鲸鱼挂件」搬到掌上设备上。**
 
-<img src="docs/images/whale_96.png" width="180" alt="whale">
+<img src="docs/images/whale-avatar.png" width="200" alt="DeepSeek 小鲸鱼">
 
 [![CI](https://github.com/seaison/DeepSeek-Whale-Cardputer/actions/workflows/ci.yml/badge.svg)](https://github.com/seaison/DeepSeek-Whale-Cardputer/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -34,6 +34,12 @@
 | 🔊 **音效** | 内置合成音（按键 / 完成 / 报错），不打包任何第三方素材；想用自定义音效就把 wav 放进 SD 卡 |
 | 🗂️ **配置** | SD 卡 `/dswhale/config.json` 为主，**没插卡自动退回 NVS**，拔卡也能跑 |
 | 🔐 **TLS** | 内置**两个**根证书（DigiCert Global Root G2 / Amazon Root CA 1）——DeepSeek 国内外返回的证书链不一样，只钉一个会让另一边的用户握手失败；需要中间人代理时可关（见配置文档） |
+
+<img src="docs/images/whale-sprite-96.png" width="48" align="right" alt="96x96 sprite">
+
+> 设备上渲染的是同一只鲸鱼的 **96×96 RGB565** 像素版（右图），由 `tools/bin2header.py`
+> 从 [`assets/whale_96x96_rgb565.bin`](assets/README.md) 生成成 `src/assets/whale_96.h`；上面的
+> 大图只是形象展示。
 
 ## 硬件与开发环境
 
