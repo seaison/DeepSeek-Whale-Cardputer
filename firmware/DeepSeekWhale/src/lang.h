@@ -97,6 +97,7 @@ namespace lang {
     X(SetBubbleClose, "Bubble close", "气泡自动关闭")                                           \
     X(SetSeconds, "Clock seconds", "时钟显示秒")                                                \
     X(SetLanguage, "Language", "语言")                                                          \
+    X(SetWhaleSpin, "Whale spin", "鲸鱼旋转")                                                     \
     X(SetSave, "Save now", "立即保存")                                                          \
     X(ValOn, "on", "开")                                                                        \
     X(ValOff, "off", "关")                                                                      \

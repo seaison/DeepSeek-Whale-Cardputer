@@ -31,6 +31,7 @@
 | `bubble_auto_close_sec` | int | `12` | 0–120 | 气泡自动关闭秒数，`0` = 不自动关（按键才关） |
 | `show_seconds` | bool | `true` | — | 状态栏时钟是否显示秒 |
 | `lang` | string | `"en"` | `"en"` / `"zh"` | 界面语言。`"zh"` 走 M5GFX 自带的 efont 中文字库；设备上也能切：菜单 → `设置 → 语言`，或主屏按 `L` |
+| `whale_spin` | bool | `true` | — | 点按鲸鱼（或按 `ENTER`/空格）时是否播放 360° 旋转动画 |
 
 ### 示例
 
@@ -46,7 +47,8 @@
   "ledger_keep_days": 90,
   "bubble_auto_close_sec": 12,
   "show_seconds": true,
-  "lang": "zh"
+  "lang": "zh",
+  "whale_spin": true
 }
 ```
 
@@ -101,11 +103,23 @@ NVS 里只存四个字段（`ssid` / `pass` / `key` / `lang`），因为容量�
 设备端默认用**合成音**（不打包任何第三方素材）。想换成自己的声音，把 16bit PCM 的 wav 放到：
 
 ```text
-/dswhale/sound/task_end.wav
+/dswhale/sound/
+├── press.wav      # 按键按下
+├── release.wav    # 按键松开 / 返回
+├── click.wav      # 点按鲸鱼（插件里对应「按压音效」，比如 Ya1.mp3）
+└── task_end.wav   # 任务结束音（比如 minecraft-exp-orb.wav）
 ```
 
-播放时整段读进 PSRAM（上限 4MB）。文件不存在或格式不支持时自动回退到合成音。上游插件的 mp3 不能直接用（设备端没有 mp3 解码器），需要先转成 wav：
+**文件存在就用它，不存在自动回落到内置合成音**（所以缺哪个都不影响使用）。
+播放时整段读进 PSRAM（单个文件上限 4MB）。
+
+上游插件的音效是 mp3，**设备端没有 mp3 解码器**，必须先转成 16bit PCM 的 wav：
 
 ```bash
-ffmpeg -i minecraft-exp-orb.wav -ac 1 -ar 16000 -sample_fmt s16 /Volumes/SDCARD/dswhale/sound/task_end.wav
+# 以插件的「小黄鸭」按压音为例
+ffmpeg -i Ya1.mp3 -ac 1 -ar 16000 -sample_fmt s16 /Volumes/SD/dswhale/sound/click.wav
+ffmpeg -i Ya2.mp3 -ac 1 -ar 16000 -sample_fmt s16 /Volumes/SD/dswhale/sound/release.wav
+ffmpeg -i minecraft-exp-orb.wav -ac 1 -ar 16000 -sample_fmt s16 /Volumes/SD/dswhale/sound/task_end.wav
 ```
+
+音量用 `volume` 字段控制（同时作用于合成音和 wav）。

@@ -15,11 +15,21 @@ struct Note {
 
 // 合成音序列（短促、不刺耳；音量跟设置走）
 const Note kOk[] = {{1046.5f, 55}, {1568.0f, 90}};
+// 点按鲸鱼：「啵」一下，和普通按键的短促 click 明显不同
+const Note kClick[] = {{784.0f, 16}, {1318.5f, 34}};
 const Note kDone[] = {{880.0f, 70}, {1174.7f, 70}, {1568.0f, 130}};
 const Note kErr[] = {{392.0f, 110}, {261.6f, 160}};
 
 bool s_enabled = true;
 uint8_t s_volume = 110;
+
+// 可选的自定义音效（存在就用，不存在回落合成音）
+constexpr const char* kPressWav = "/dswhale/sound/press.wav";
+constexpr const char* kReleaseWav = "/dswhale/sound/release.wav";
+constexpr const char* kClickWav = "/dswhale/sound/click.wav";
+bool s_hasPress = false;
+bool s_hasRelease = false;
+bool s_hasClick = false;
 
 const Note* s_seq = nullptr;
 size_t s_seqLen = 0;
@@ -52,6 +62,10 @@ void begin(bool enabled, uint8_t volume) {
     s_enabled = enabled;
     s_volume = volume;
     M5.Speaker.setVolume(s_volume);
+    // 探测一次可选的 SD 音效（此时 SD 已挂载）
+    s_hasPress = SD.exists(kPressWav);
+    s_hasRelease = SD.exists(kReleaseWav);
+    s_hasClick = SD.exists(kClickWav);
 }
 
 void loop() {
@@ -90,12 +104,29 @@ uint8_t volume() {
 
 void keyPress() {
     if (!s_enabled) return;
+    if (s_hasPress) {  // 有自定义音效就不再叠合成音
+        playWavFile(kPressWav);
+        return;
+    }
     M5.Speaker.tone(1250.0f, 18, -1, true);
 }
 
 void keyRelease() {
     if (!s_enabled) return;
+    if (s_hasRelease) {
+        playWavFile(kReleaseWav);
+        return;
+    }
     M5.Speaker.tone(820.0f, 14, -1, true);
+}
+
+void whaleClick() {
+    if (!s_enabled) return;
+    if (s_hasClick) {
+        playWavFile(kClickWav);
+        return;
+    }
+    startSequence(kClick, sizeof(kClick) / sizeof(kClick[0]));
 }
 
 void ok() {

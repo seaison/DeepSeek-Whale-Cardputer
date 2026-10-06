@@ -72,6 +72,13 @@ public:
     bool begin();  // 建离屏缓冲；失败返回 false
     M5Canvas& canvas() { return canvas_; }
 
+    // 鲸鱼旋转角度（度）。0 = 不转；点按鲸鱼时由 .ino 驱动一个 0→360 的动画。
+    void setWhaleAngle(float deg) { whaleAngle_ = deg; }
+
+    // 提示条（toast）。各屏在**推屏前**统一画一次，避免「先推底图、再推提示」闪一下。
+    // 传 nullptr 表示不显示。
+    void setToast(const char* text);
+
     void drawBoot(const char* stage, const char* detail);
     void drawMain(const ViewModel& vm);
     void drawMenu(const ViewModel& vm, const std::vector<std::string>& items, int sel,
@@ -83,10 +90,13 @@ public:
                       const std::vector<std::string>& values, int sel);
     void drawAbout(const ViewModel& vm);
     void drawBubble(const ViewModel& vm, const char* title, const std::vector<std::string>& lines);
-    // 只画 toast 面板并推送——调用前屏幕内容已经画好了（不重绘底图）
-    void drawToastOverlay(const char* text);
+
 
 private:
+    // 只把主屏画进离屏缓冲，**不推屏**——气泡/提示这类叠加层要先画底图再一起推，
+    // 否则一帧推两次屏（先无气泡再有气泡）就会闪。
+    void composeMain(const ViewModel& vm);
+    void drawToastPanel();  // 只画进 canvas，不推屏
     void statusBar(const ViewModel& vm, const char* rightBadge, uint16_t badgeColor);
     void footer(const char* text, uint16_t color);
     void panel(int x, int y, int w, int h, uint16_t fill, uint16_t border);
@@ -94,4 +104,7 @@ private:
 
     M5Canvas canvas_{&M5Cardputer.Display};
     bool ready_ = false;
+    float whaleAngle_ = 0.0f;
+    char toastText_[64] = {};
+    bool toastOn_ = false;
 };

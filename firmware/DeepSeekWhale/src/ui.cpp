@@ -15,6 +15,7 @@
 // 所以**行高与可视行数都是按当前字体实测出来的**，不是写死的常量。
 #include "ui.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -147,7 +148,17 @@ void Ui::panel(int x, int y, int w, int h, uint16_t fill, uint16_t border) {
 }
 
 void Ui::whale(int x, int y) {
-    canvas_.pushImage(x, y, WHALE_96_W, WHALE_96_H, whale_96);
+    if (fabsf(whaleAngle_) < 0.5f) {
+        canvas_.pushImage(x, y, WHALE_96_W, WHALE_96_H, whale_96);
+        return;
+    }
+    // 旋转时同时缩一点：96x96 转到 45° 时外接框是 136px，会戳出 100px 的画框；
+    // 0.68 倍后最大 92px，正好留在框里。角度按度（LovyanGFX 的 pushImageRotateZoom 用度）。
+    const float t = fabsf(sinf(whaleAngle_ * 0.0174532925f));
+    const float zoom = 1.0f - 0.32f * t;
+    canvas_.pushImageRotateZoom(x + WHALE_96_W / 2.0f, y + WHALE_96_H / 2.0f,
+                                WHALE_96_W / 2.0f, WHALE_96_H / 2.0f, whaleAngle_, zoom, zoom,
+                                WHALE_96_W, WHALE_96_H, whale_96);
 }
 
 void Ui::statusBar(const ViewModel& vm, const char* rightBadge, uint16_t badgeColor) {
@@ -229,6 +240,11 @@ void Ui::drawBoot(const char* stage, const char* detail) {
 }
 
 void Ui::drawMain(const ViewModel& vm) {
+    composeMain(vm);
+    if (ready_) canvas_.pushSprite(0, 0);
+}
+
+void Ui::composeMain(const ViewModel& vm) {
     if (!ready_) return;
     const lang::FontSet& F = lang::fonts();
     canvas_.fillSprite(kBgDeep);
@@ -338,7 +354,7 @@ void Ui::drawMain(const ViewModel& vm) {
     } else {
         footer(lang::t(lang::Str::HintMain), kMuted);
     }
-    canvas_.pushSprite(0, 0);
+    if (toastOn_) drawToastPanel();
 }
 
 void Ui::drawMenu(const ViewModel& vm, const std::vector<std::string>& items, int sel,
@@ -385,6 +401,7 @@ void Ui::drawMenu(const ViewModel& vm, const std::vector<std::string>& items, in
         canvas_.drawString(row, 7, y);
     }
     footer(lang::t(lang::Str::HintMenu), kMuted);
+    if (toastOn_) drawToastPanel();
     canvas_.pushSprite(0, 0);
 }
 
@@ -432,6 +449,7 @@ void Ui::drawList(const ViewModel& vm, const char* title,
         canvas_.drawString(rows[idx].second.c_str(), kScreenW - 7, y);
     }
     footer(foot ? foot : lang::t(lang::Str::HintScroll), kMuted);
+    if (toastOn_) drawToastPanel();
     canvas_.pushSprite(0, 0);
 }
 
@@ -477,6 +495,7 @@ void Ui::drawSettings(const ViewModel& vm, const std::vector<std::string>& label
         canvas_.drawString(v, kScreenW - 7, y);
     }
     footer(lang::t(lang::Str::HintSettings), kMuted);
+    if (toastOn_) drawToastPanel();
     canvas_.pushSprite(0, 0);
 }
 
@@ -533,13 +552,14 @@ void Ui::drawAbout(const ViewModel& vm) {
     }
 
     footer(lang::t(lang::Str::HintAbout), kMuted);
+    if (toastOn_) drawToastPanel();
     canvas_.pushSprite(0, 0);
 }
 
 void Ui::drawBubble(const ViewModel& vm, const char* title, const std::vector<std::string>& lines) {
     if (!ready_) return;
     const lang::FontSet& F = lang::fonts();
-    drawMain(vm);  // 先画主屏，气泡盖在上面
+    composeMain(vm);  // 先把主屏画进缓冲（不推屏），气泡盖上去后只推一次
 
     const int x = 84;
     const int w = kScreenW - x - 4;
@@ -588,16 +608,27 @@ void Ui::drawBubble(const ViewModel& vm, const char* title, const std::vector<st
         canvas_.drawString(hint, x + w - padX, y + h - 3);
         canvas_.setTextDatum(textdatum_t::top_left);
     }
+    if (toastOn_) drawToastPanel();
     canvas_.pushSprite(0, 0);
 }
 
-void Ui::drawToastOverlay(const char* text) {
-    if (!ready_ || !text) return;
+void Ui::setToast(const char* text) {
+    if (!text || !*text) {
+        toastOn_ = false;
+        toastText_[0] = '\0';
+        return;
+    }
+    snprintf(toastText_, sizeof(toastText_), "%s", text);
+    toastOn_ = true;
+}
+
+void Ui::drawToastPanel() {
+    if (!ready_ || !toastOn_) return;
     const lang::FontSet& F = lang::fonts();
     canvas_.setFont(F.small);
     const int lineH = (int)canvas_.fontHeight() + 3;
     std::vector<std::string> lines;
-    wrapText(canvas_, text, kScreenW - 24, lines, 2);
+    wrapText(canvas_, toastText_, kScreenW - 24, lines, 2);
 
     int tw = 0;
     for (const auto& l : lines) {
@@ -617,5 +648,4 @@ void Ui::drawToastOverlay(const char* text) {
         canvas_.drawString(l.c_str(), x + 10, ty);
         ty += lineH;
     }
-    canvas_.pushSprite(0, 0);
 }

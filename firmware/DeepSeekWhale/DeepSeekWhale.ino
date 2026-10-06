@@ -27,7 +27,7 @@
 #include "src/sound.h"
 #include "src/ui.h"
 
-#define APP_VERSION "1.1.0"
+#define APP_VERSION "1.2.0"
 
 // ============================ 全局状态 ============================
 static AppConfig g_cfg;
@@ -57,6 +57,19 @@ static uint32_t g_cfgDirtyAt = 0;
 static bool g_bubbleOn = false;
 static uint32_t g_bubbleUntilMs = 0;
 static bubbles::Bubble g_bubble;
+
+// 点按鲸鱼的 360° 旋转动画
+static bool g_spinning = false;
+static uint32_t g_spinStartMs = 0;
+static constexpr uint32_t kWhaleSpinMs = 420;  // 一圈用时
+
+// 按键边沿的最小间隔（防抖：一次物理按下只触发一次动作）
+static uint32_t s_lastCharMs = 0;
+static uint32_t s_lastEnterMs = 0;
+static uint32_t s_lastTabMs = 0;
+static uint32_t s_lastBackMs = 0;
+static constexpr uint32_t kEdgeGuardMs = 120;
+static constexpr uint32_t kCharGuardMs = 40;
 
 static bool g_toastOn = false;
 static uint32_t g_toastUntilMs = 0;
@@ -247,6 +260,11 @@ static void showBubble(bool advance) {
     g_bubbleUntilMs = g_cfg.bubbleAutoCloseSec > 0
                           ? millis() + (uint32_t)g_cfg.bubbleAutoCloseSec * 1000u
                           : 0;
+    sound::whaleClick();  // 点鲸鱼的声音和普通按键分开
+    if (g_cfg.whaleSpin) {
+        g_spinning = true;
+        g_spinStartMs = millis();
+    }
     g_forceRender = true;
 }
 
@@ -265,6 +283,7 @@ enum SettingId {
     kSetBubbleClose,
     kSetSeconds,
     kSetLanguage,
+    kSetWhaleSpin,
     kSetSave,
     kSetCount,
 };
@@ -275,7 +294,7 @@ static void settingLabels(std::vector<std::string>& labels, std::vector<std::str
               lang::t(lang::Str::SetVolume),     lang::t(lang::Str::SetRefresh),
               lang::t(lang::Str::SetTls),        lang::t(lang::Str::SetBubbleClose),
               lang::t(lang::Str::SetSeconds),    lang::t(lang::Str::SetLanguage),
-              lang::t(lang::Str::SetSave)};
+              lang::t(lang::Str::SetWhaleSpin),  lang::t(lang::Str::SetSave)};
     const char* on = lang::t(lang::Str::ValOn);
     const char* off = lang::t(lang::Str::ValOff);
     values.clear();
@@ -291,6 +310,7 @@ static void settingLabels(std::vector<std::string>& labels, std::vector<std::str
     values.push_back(buf);
     values.push_back(g_cfg.showSeconds ? on : off);
     values.push_back(lang::t(lang::Str::ValLangName));  // English / 中文
+    values.push_back(g_cfg.whaleSpin ? on : off);
     values.push_back("-");
 }
 
@@ -328,6 +348,9 @@ static void adjustSetting(int dir) {
             break;
         case kSetLanguage:
             toggleLanguage();
+            break;
+        case kSetWhaleSpin:
+            g_cfg.whaleSpin = !g_cfg.whaleSpin;
             break;
         case kSetSave: {
             const bool ok = g_store.save(g_cfg);
@@ -446,25 +469,27 @@ static void handleChar(char c) {
 static void handleEnter() {
     switch (g_screen) {
         case Screen::Main:
-            showBubble(true);
+            showBubble(true);  // 内部放 whaleClick
             break;
         case Screen::Menu:
+            sound::keyPress();
             activateMenu();
             break;
         case Screen::Settings:
+            sound::keyPress();
             if (g_setSel == kSetSave) {
                 adjustSetting(0);
             } else if (g_setSel == kSetSound || g_setSel == kSetTls || g_setSel == kSetSeconds ||
-                       g_setSel == kSetLanguage) {
+                       g_setSel == kSetLanguage || g_setSel == kSetWhaleSpin) {
                 adjustSetting(0);
             }
             break;
         case Screen::Ledger:
         case Screen::Net:
         case Screen::About:
+            sound::keyRelease();
             g_screen = Screen::Menu;
             g_forceRender = true;
-            sound::keyRelease();
             break;
         default:
             break;
@@ -483,38 +508,43 @@ static void pollKeys() {
         enter = st.enter;
         del = st.del;
     }
+    kb.isChange();  // 不再依赖它做判据，只是把库内部状态消费掉
 
-    if (kb.isChange()) {
-        if (!cur.empty()) {
-            for (char c : cur) {
-                if (charIsNew(c, cur)) {
-                    sound::keyPress();
-                    handleChar(c);
-                }
-            }
-        }
-        if (enter && !s_prevEnter) {
-            sound::keyPress();
-            handleEnter();
-        }
-        if (tab && !s_prevTab) {
-            sound::keyPress();
-            g_screen = (g_screen == Screen::Menu) ? Screen::Main : Screen::Menu;
-            g_forceRender = true;
-        }
-        if (del && !s_prevDel) {
-            sound::keyPress();
-            goBack();
-        }
+    const uint32_t now = millis();
+
+    // 字符键：与上一帧求差集，**每帧都判**。
+    // 不能只在 isChange() 里判 —— 同时按下/松开时按键数量不变，isChange() 不触发，会漏事件。
+    for (char c : cur) {
+        if (!charIsNew(c, cur)) continue;
+        if (now - s_lastCharMs < kCharGuardMs) continue;
+        s_lastCharMs = now;
+        if (c != ' ') sound::keyPress();  // 空格 = 点鲸鱼，声音交给 showBubble
+        handleChar(c);
     }
+
+    // 特殊键：上升沿 + 最小间隔 ⇒ 一次物理按下只做一次动作（防抖）
+    if (enter && !s_prevEnter && now - s_lastEnterMs >= kEdgeGuardMs) {
+        s_lastEnterMs = now;
+        handleEnter();
+    }
+    if (tab && !s_prevTab && now - s_lastTabMs >= kEdgeGuardMs) {
+        s_lastTabMs = now;
+        sound::keyPress();
+        g_screen = (g_screen == Screen::Menu) ? Screen::Main : Screen::Menu;
+        g_forceRender = true;
+    }
+    if (del && !s_prevDel && now - s_lastBackMs >= kEdgeGuardMs) {
+        s_lastBackMs = now;
+        goBack();
+    }
+
     s_prevTab = tab;
     s_prevEnter = enter;
     s_prevDel = del;
     s_prevWord = cur;
 
-    // 长按方向键：首字触发后 400ms 开始每 110ms 重复一次
+    // 长按方向键：首字触发后 400ms 开始每 110ms 重复一次（只用于导航，不影响其他键）
     const int dir = navDirOf(cur);
-    const uint32_t now = millis();
     if (dir == 0) {
         s_navDir = 0;
     } else if (dir != s_navDir) {
@@ -539,8 +569,9 @@ static void activateMenu() {
         case kMenuReboot:
             toast(lang::t(lang::Str::ToastRebooting));
             fillVm();
+            g_ui.setToast(g_toastText);
+            g_ui.setWhaleAngle(0.0f);
             g_ui.drawMain(g_vm);
-            g_ui.drawToastOverlay(g_toastText);
             delay(400);
             ESP.restart();
             break;
@@ -602,12 +633,25 @@ static void buildNetRows(std::vector<std::pair<std::string, std::string>>& rows)
 
 static void render() {
     const uint32_t now = millis();
-    if (!g_forceRender && now - g_lastRenderMs < 200) return;
+
+    // 旋转动画：420ms 转满 360°，动画期间把刷新间隔压到 30ms
+    float angle = 0.0f;
+    if (g_spinning) {
+        const uint32_t elapsed = now - g_spinStartMs;
+        if (elapsed >= kWhaleSpinMs) {
+            g_spinning = false;  // 结束时角度正好回到 0，不会跳
+        } else {
+            angle = 360.0f * (float)elapsed / (float)kWhaleSpinMs;
+        }
+    }
+    if (!g_forceRender && now - g_lastRenderMs < (g_spinning ? 30u : 200u)) return;
     g_lastRenderMs = now;
     g_forceRender = false;
+    g_ui.setWhaleAngle(angle);
 
     fillVm();
     if (g_toastOn && now > g_toastUntilMs) g_toastOn = false;
+    g_ui.setToast(g_toastOn ? g_toastText : nullptr);  // 各屏推屏前统一画，避免闪
     if (g_bubbleOn && g_bubbleUntilMs > 0 && now > g_bubbleUntilMs) g_bubbleOn = false;
 
     switch (g_screen) {
@@ -652,8 +696,6 @@ static void render() {
             }
             break;
     }
-    // toast 是纯叠加层：屏幕内容已经画好，只把面板盖上去再推送一次
-    if (g_toastOn) g_ui.drawToastOverlay(g_toastText);
 }
 
 // ============================ setup / loop ============================

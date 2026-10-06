@@ -20,6 +20,7 @@ struct AppConfig {
     int bubbleAutoCloseSec = 12;      // 气泡自动关闭秒数，0 = 不自动关
     bool showSeconds = true;          // 时间显示到秒
     std::string language = "en";      // 界面语言："en" / "zh"，见 lang.h
+    bool whaleSpin = true;            // 点按鲸鱼时是否播放 360° 旋转动画
 };
 
 class ConfigStore {

@@ -16,6 +16,32 @@
 - AP 配网门户（手机填 WiFi 与 API key）
 - 主机侧单元测试补 `ledger`（需要给 `SD`/`File` 写内存桩；`money` / `pricing` 已有）
 
+## [1.2.0] - 2026-10-06
+
+### 修复
+
+- **气泡一直闪烁**：`drawBubble()` 内部会先画主屏，而画主屏的函数结尾就 `pushSprite()`
+  了一次 —— 等于每帧推两次屏：先显示「没有气泡的主屏」，再显示「有气泡的主屏」，
+  5fps 下就是肉眼可见的闪。现在把主屏拆成 `composeMain()`（只画进离屏缓冲、不推屏）
+  与 `drawMain()`（画完推一次），气泡在缓冲里盖上去后**只推一次**。
+- **提示条（toast）同样闪烁**：改成 `setToast()` + 各屏在推屏前统一画一次（`drawToastPanel()`），
+  不再「先推底图再推提示」。
+- **按键事件可能漏报**：原来只在 `Keyboard.isChange()` 为真时做边沿检测，而
+  `isChange()` 比较的是**按键数量**——同时按下/松开时数量不变，事件就丢了。
+  现在每帧都做边沿检测（字符键与上一帧求差集），并给 `ENTER`/`TAB`/退格
+  加了 120ms 最小间隔（一次物理按下 = 一次动作）。
+
+### 新增
+
+- **点按鲸鱼的 360° 打转动画**：420ms 转满一圈，动画期间刷新率提到 ~33fps；
+  旋转时同时缩到 0.68 倍，否则 96×96 转到 45° 会戳出 100px 的画框。
+  可在 `config.json` 里设 `"whale_spin": false`，或菜单 → `设置 → 鲸鱼旋转`。
+- **点鲸鱼的独立音效**：`sound::whaleClick()`，和普通按键音区分开；
+  支持 SD 卡上的自定义音效（**存在就用，不存在回落合成音**）：
+  `/dswhale/sound/` 下的 `press.wav`、`release.wav`、`click.wav`、`task_end.wav`。
+  上游插件的 mp3 素材不在 MIT 范围内、设备端也没有 mp3 解码器，需要自己用 ffmpeg
+  转成 16bit PCM wav 放进去（命令见 docs/CONFIG.md）。
+
 ## [Unreleased]
 
 ### 文档
@@ -109,6 +135,7 @@
 - **模型名匹配漏了大小写归一**：上游 `priceFor()` 第一步是 `toLowerCase()`，
   移植时漏了 → 单测里加了一条 `DeepSeek-V4-Pro` 的用例锁住行为。
 
-[Unreleased]: https://github.com/seaison/DeepSeek-Whale-Cardputer/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/seaison/DeepSeek-Whale-Cardputer/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/seaison/DeepSeek-Whale-Cardputer/releases/tag/v1.2.0
 [1.1.0]: https://github.com/seaison/DeepSeek-Whale-Cardputer/releases/tag/v1.1.0
 [1.0.0]: https://github.com/seaison/DeepSeek-Whale-Cardputer/releases/tag/v1.0.0
