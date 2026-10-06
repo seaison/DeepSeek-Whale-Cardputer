@@ -1,6 +1,6 @@
 # 配置与落盘文件
 
-设备上所有可变状态都在 SD 卡的 `/dswhale/` 目录里；**没插卡时配置会退回 NVS**（ESP32 flash 里的 Preferences），账本只在内存里（重启即丢，仅在卡不在时如此）。
+设备上所有可变状态都在 SD 卡的 `/dswhale/` 目录里（卡必须是 **FAT32 + MBR** 分区，[原因见这里](GETTING-STARTED.md#二sd-卡怎么格式化)）；**没插卡时配置会退回 NVS**（ESP32 flash 里的 Preferences），账本只在内存里（重启即丢，仅在卡不在时如此）。
 
 ```text
 /dswhale/

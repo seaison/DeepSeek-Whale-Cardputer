@@ -16,6 +16,16 @@
 - AP 配网门户（手机填 WiFi 与 API key）
 - 主机侧单元测试补 `ledger`（需要给 `SD`/`File` 写内存桩；`money` / `pricing` 已有）
 
+## [Unreleased]
+
+### 文档
+
+- 补上 **SD 卡格式化要求**：必须是 **FAT32 + MBR 分区表**。
+  依据是这份工具链里 FatFs 的编译配置：`FF_FS_EXFAT=0`（不认 exFAT）、
+  `FF_LBA64=0`（只认 MBR，不认 GPT）。同时写清了 macOS/Windows/Linux
+  各自的格式化命令，以及「卡要在开机前插好」（固件只在 setup 里挂载一次）
+  和写保护开关这两个坑。
+
 ## [1.1.0] - 2026-10-06
 
 ### 新增

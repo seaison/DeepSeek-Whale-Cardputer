@@ -10,7 +10,7 @@
    - `M5Unified`（≥ 0.2.25）
    - `M5GFX`（≥ 0.2.32）
    - `ArduinoJson`（≥ 7.x）
-5. microSD 卡（FAT32），强烈建议插上
+5. microSD 卡（**FAT32 + MBR**，见下一节），强烈建议插上
 
 ### 打开工程
 
@@ -24,7 +24,60 @@ git clone https://github.com/seaison/DeepSeek-Whale-Cardputer.git
 
 克隆到哪个目录名都无所谓——只要打开的是 `firmware/DeepSeekWhale/` 这一层。
 
-## 二、开发板设置
+## 二、SD 卡怎么格式化
+
+固件用的是 ESP-IDF 的 FatFs，这份编译配置（`ffconf.h`）里有两条硬限制：
+
+| 配置 | 值 | 含义 |
+|---|---|---|
+| `FF_FS_EXFAT` | **0** | **不支持 exFAT** |
+| `FF_LBA64` | **0** | 只认 **MBR** 分区表，不认 GPT |
+| `FF_SS_SDCARD` | 512 | 512 字节逻辑扇区（SD 卡本来就是） |
+
+所以：
+
+- ✅ **FAT32**（推荐；≤2GB 的老卡 FAT16/FAT12 也行）
+- ❌ exFAT —— 挂载会失败（`SD.begin` 返回 false，菜单 → 网络 里显示 `SD 卡 未插入`）
+- ❌ NTFS / ext4 / APFS
+- ❌ **GPT 分区表**（哪怕里面是 FAT32）—— 请用 **MBR**
+
+簇大小、卷标随便，用默认值就行。**空卡就行**，`/dswhale/` 目录是固件自己建的。
+固件**不会**格式化卡（`SD.begin(..., format_if_empty=false)`），格式不对就直接不挂载。
+
+### macOS
+
+```bash
+diskutil list                      # 找到卡的标识，比如 /dev/disk4（别选错，会抹掉整盘）
+diskutil unmountDisk /dev/disk4
+sudo diskutil eraseDisk MS-DOS DSWHALE MBR /dev/disk4     # MBR + FAT32
+```
+
+64GB 以上的卡如果 `MS-DOS` 落到 exFAT，就显式指定：
+
+```bash
+sudo diskutil partitionDisk /dev/disk4 MBR FAT32 DSWHALE 100%
+```
+
+### Windows
+
+- **≤32GB**：右键 → 格式化 → 文件系统选 **FAT32**（默认簇大小）
+- **>32GB**：Windows 自带对话框只给 exFAT/NTFS → 用 [Rufus](https://rufus.ie)（选「大 FAT32」）
+  或 [FAT32 Format](http://ridgecrop.co.uk/index.htm?guiformat.htm)
+
+### Linux
+
+```bash
+sudo parted /dev/sdX mklabel msdos          # MBR
+sudo parted -s /dev/sdX mkpart primary fat32 0% 100%
+sudo mkfs.vfat -F 32 -n DSWHALE /dev/sdX1
+```
+
+### 两个容易踩的点
+
+1. **卡要在开机前插好**：固件只在 `setup()` 里挂载一次，运行中插卡不会重新识别，得重启。
+2. **TF 转 SD 卡套上的写保护开关**要拨到可写——锁上时 `SD.begin` 仍会成功，但写 `config.json` / `ledger.json` 会失败（菜单里保存会弹 `保存失败`）。
+
+## 三、开发板设置
 
 Arduino IDE → **工具**：
 
@@ -42,7 +95,7 @@ CLI 等价写法：
 --fqbn "esp32:esp32:m5stack_cardputer:PSRAM=enabled,PartitionScheme=default_8MB"
 ```
 
-## 三、烧录
+## 四、烧录
 
 ```bash
 # 看端口
@@ -57,7 +110,7 @@ arduino-cli upload  --fqbn "esp32:esp32:m5stack_cardputer:PSRAM=enabled,Partitio
 
 > 卡在 `Connecting...` 就按住侧面的 **G0** 再点上传，或者拔掉再插一次。设备上有复位键，别用拔线当复位。
 
-## 四、第一次开机
+## 五、第一次开机
 
 顺序是：挂载 SD → 读配置 → 连 WiFi（最多 15 秒）→ NTP 对时（最多 12 秒）→ 拉一次余额 → 主界面。
 
@@ -65,7 +118,7 @@ arduino-cli upload  --fqbn "esp32:esp32:m5stack_cardputer:PSRAM=enabled,Partitio
 - 右上徽标 `PEAK` / `OFF-PEAK` / `SYNC TIME`
 - 主屏右下是当前档位的**下一切换倒计时**
 
-## 五、排错
+## 六、排错
 
 ### 屏幕上没有余额，只显示 `--`
 
@@ -80,7 +133,7 @@ arduino-cli upload  --fqbn "esp32:esp32:m5stack_cardputer:PSRAM=enabled,Partitio
 | `last fetch  HTTP 402` | 余额不足 | 充值 |
 | `last fetch  net err -1` | TLS/网络失败 | 先看 `time sync` 是不是 `pending`；被代理/校园网中间人时把 `tls_verify` 设成 `false` |
 | `time sync  pending` | NTP 没成功 | 换个能出网的环境；NTP 用的是 `ntp.aliyun.com` / `ntp.tencent.com` / `pool.ntp.org` |
-| `sd card  not present` | 没识别到卡 | 卡要 **FAT32**；重新插紧；换个卡试 |
+| `sd card  not present` | 没识别到卡 | 卡要 **FAT32 + MBR**（exFAT/GPT 挂不上，见第二节）；开机前插好；重新插紧；换个卡试 |
 
 ### 今日已用是 `--`
 
@@ -111,7 +164,7 @@ Sketch uses ... Maximum is 1310720 bytes
 - 只有 ADV 才走 TCA8418；确认库版本；
 - 串口里如果打印 `Keyboard: Unsupported board type`，说明 M5Unified 没识别成 `board_M5CardputerADV`——升级 M5Unified / M5GFX。
 
-## 六、按键速查
+## 七、按键速查
 
 | 按键 | 作用 |
 |---|---|
@@ -123,7 +176,7 @@ Sketch uses ... Maximum is 1310720 bytes
 | `R` | 立即刷新余额 |
 | `L` | 中英切换（菜单 → 设置 → 语言 也能切） |
 
-## 七、串口日志
+## 八、串口日志
 
 115200 波特率。关键行：
 
