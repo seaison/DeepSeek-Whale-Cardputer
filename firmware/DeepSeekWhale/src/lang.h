@@ -189,11 +189,13 @@ Lang fromCode(const char* code, Lang fallback = Lang::En);
 struct FontSet {
     const lgfx::IFont* small;  // 小标签、状态栏、底栏提示
     const lgfx::IFont* mono;   // 菜单 / 列表 / 次要数值 / 余额那行的标签
-    const lgfx::IFont* value;  // 主数值（余额）
+    const lgfx::IFont* value;  // 主数值（余额）——首选的大号字
     const lgfx::IFont* title;  // 启动页标题
-    // 主数值的额外缩放。英文 12pt 已经够大，取 1.0；
-    // 中文 efont 最大只有 24px，靠 setTextSize 再放大一点（点阵缩放，1.15 倍内还算干净）。
+    // 主数值的额外缩放（中文 efont 最大只有 24px，靠缩放再放大一点）
     float valueScale;
+    // 余额位数多、首选字号放不下时退回这一档（再放不下就退到 mono）
+    const lgfx::IFont* valueAlt;
+    float valueAltScale;
 };
 
 const FontSet& fonts();

@@ -27,8 +27,10 @@ static_assert(sizeof(kZh) / sizeof(kZh[0]) == (size_t)Str::Count, "中文表与�
 constexpr FontSet kFontsEn = {
     &fonts::Font0,             // 6x8
     &fonts::AsciiFont8x16,     // 8x16
-    &fonts::FreeSans12pt7b,    // 余额数值（yAdvance 29，比原来的 9pt/22 大一档）
+    &fonts::FreeSans18pt7b,    // 余额数值（yAdvance 42，数字视觉高度约 25px）
     &fonts::Orbitron_Light_24, // 标题
+    1.0f,
+    &fonts::FreeSans12pt7b,    // 余额位数多时退这一档（"1234.56" 在 18pt 下就 123px 了）
     1.0f
 };
 
@@ -38,7 +40,9 @@ constexpr FontSet kFontsZh = {
     &fonts::efontCN_16,  // 菜单 / 列表 / 余额标签
     &fonts::efontCN_24,  // 主数值（efont 里最大的 CN 字号）
     &fonts::efontCN_24,  // 标题
-    1.15f                // 主数值再放大一点，和英文那档的视觉大小对齐
+    1.35f,               // 24px 只有缩放一途；1.35 倍约 32px
+    &fonts::efontCN_24,  // 位数多时退到 1.15 倍
+    1.15f
 };
 
 // ===== 随机台词 =====

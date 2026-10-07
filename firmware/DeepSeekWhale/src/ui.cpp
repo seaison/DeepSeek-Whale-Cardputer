@@ -2,11 +2,11 @@
 //
 // 布局（横屏 rotation=1）：
 //   ┌──────────────────────────────────────────┐
-//   │ 状态条: WiFi / 时钟 / 峰谷徽标            │  y 0..14
+//   │ 状态条: WiFi / 时钟 / 电量 / 峰谷徽标      │  y 0..14
 //   ├────────────┬─────────────────────────────┤
-//   │ 鲸鱼 96x96 │  余额                        │  右列：余额是「标签 + 大号数值」
-//   │            │  110.00                      │  的块（占满列宽，字号才放得大）；
-//   │            │  今日已用            1.23     │  下面两行是「左标签 + 右数值」；
+//   │ 鲸鱼 96x96 │  余额                        │  右列：余额是「左上标签 +
+//   │            │                    110.00    │  压在块最下面一行的右对齐大号数值」
+//   │            │  今日已用            1.23     │  的块；下面两行是「左标签 + 右数值」；
 //   │            │  高峰计价          2h 13m     │  剩余竖直空间均分成两个间隙
 //   ├────────────┴─────────────────────────────┤
 //   │ 提示 / 错误行                             │  y 120..134
@@ -168,11 +168,10 @@ void Ui::statusBar(const ViewModel& vm, const char* rightBadge, uint16_t badgeCo
     const lang::FontSet& F = lang::fonts();
     canvas_.fillRect(0, 0, kScreenW, kStatusH, kPanel);
     canvas_.drawFastHLine(0, kStatusH - 1, kScreenW, kPanelEdge);
-
-    canvas_.setTextDatum(textdatum_t::middle_left);
     canvas_.setFont(F.small);
 
     // 左：WiFi 状态
+    canvas_.setTextDatum(textdatum_t::middle_left);
     const uint16_t dot = vm.wifiOnline ? kValley : (vm.wifiConfigured ? kPeak : kWarn);
     canvas_.fillCircle(7, kStatusH / 2, 3, dot);
     canvas_.setTextColor(kMuted);
@@ -185,9 +184,15 @@ void Ui::statusBar(const ViewModel& vm, const char* rightBadge, uint16_t badgeCo
     }
     canvas_.drawString(left, 14, kStatusH / 2);
 
+    // 右：峰谷徽标（先量宽度——电量要排在它左边）
+    const int badgeW = rightBadge ? (int)canvas_.textWidth(rightBadge) : 0;
+    if (rightBadge) {
+        canvas_.setTextDatum(textdatum_t::middle_right);
+        canvas_.setTextColor(badgeColor);
+        canvas_.drawString(rightBadge, kScreenW - 4, kStatusH / 2);
+    }
+
     // 中：时间（北京时间）
-    canvas_.setTextDatum(textdatum_t::middle_center);
-    canvas_.setTextColor(vm.timeSynced ? kText : kMuted);
     char clock[16];
     if (vm.timeSynced) {
         const pricing::BeijingTime bt = pricing::beijing(vm.nowUtc);
@@ -199,14 +204,48 @@ void Ui::statusBar(const ViewModel& vm, const char* rightBadge, uint16_t badgeCo
     } else {
         snprintf(clock, sizeof(clock), "%s", lang::t(lang::Str::ClockPending));
     }
+    canvas_.setTextDatum(textdatum_t::middle_center);
+    canvas_.setTextColor(vm.timeSynced ? kText : kMuted);
     canvas_.drawString(clock, kScreenW / 2, kStatusH / 2);
 
-    // 右：峰谷徽标
-    if (rightBadge) {
+    // 电量：夹在时钟与徽标之间。位置全部按实测宽度排，挤不下就先丢图标、再丢文字。
+    if (vm.batteryPercent >= 0) {
+        int pctVal = vm.batteryPercent;  // 显式夹紧，避免 %d 的溢出告警
+        if (pctVal > 100) pctVal = 100;
+        if (pctVal < 0) pctVal = 0;
+        char pct[8];
+        snprintf(pct, sizeof(pct), "%d%%", pctVal);
+        const int pctW = (int)canvas_.textWidth(pct);
+        const int clockRight = kScreenW / 2 + (int)canvas_.textWidth(clock) / 2;
+        const int slotRight = kScreenW - 6 - badgeW - 6;  // 徽标左边留 6px
+        const int textLeft = slotRight - pctW;
+        const int iconW = 18, iconGap = 3;
+        const bool withIcon = (textLeft - iconGap - iconW) > (clockRight + 6);
+        if (textLeft <= clockRight + 4) return;  // 实在挤不下就不显示，别压到时钟上
+
+        const uint16_t battColor = vm.batteryCharging ? kAccentSoft
+                                   : pctVal <= 15          ? kWarn
+                                   : pctVal <= 40          ? kPeak
+                                                           : kValley;
         canvas_.setTextDatum(textdatum_t::middle_right);
-        canvas_.setTextColor(badgeColor);
-        canvas_.drawString(rightBadge, kScreenW - 4, kStatusH / 2);
+        canvas_.setTextColor(battColor);
+        canvas_.drawString(pct, slotRight, kStatusH / 2);
+        if (withIcon) batteryIcon(textLeft - iconGap - iconW, kStatusH / 2 - 4, iconW, 8, pctVal,
+                                  vm.batteryCharging, battColor);
     }
+}
+
+void Ui::batteryIcon(int x, int y, int w, int h, int pct, bool charging, uint16_t color) {
+    canvas_.drawRoundRect(x, y, w, h, 2, color);
+    canvas_.fillRect(x + w, y + h / 2 - 2, 2, 4, color);  // 正极凸点
+    const int innerW = w - 4;
+    if (charging) {  // 充电时填一条斜杠，和「满电」区分开
+        canvas_.fillRect(x + 2, y + h / 2 - 1, innerW, 2, color);
+        return;
+    }
+    int fill = (pct * innerW + 50) / 100;
+    if (fill < 1 && pct > 0) fill = 1;
+    if (fill > 0) canvas_.fillRect(x + 2, y + 2, fill, h - 4, color);
 }
 
 void Ui::footer(const char* text, uint16_t color) {
@@ -275,24 +314,15 @@ void Ui::composeMain(const ViewModel& vm) {
     // 下面两行仍是「左标签 + 右数值」；剩下的竖直空间均分成两个间隙，把整列撑满。
     canvas_.setFont(F.mono);
     const int hMono = (int)canvas_.fontHeight();
-    canvas_.setFont(F.value);
-    canvas_.setTextSize(F.valueScale);
-    const int hValue = (int)canvas_.fontHeight();
-    canvas_.setTextSize(1.0f);
 
     constexpr int kColW = kColRight - kColX;
     const int colTop = 18;
     const int avail = (kFooterY - 2) - colTop;
-    const int hLabel = hMono;              // 余额标签也用 mono 档，比 small 大一档
-    const int hBlock = hLabel + hValue + 1;
-    int free = avail - (hBlock + hMono + hMono);
-    if (free < 8) free = 8;
-    const int gap = free / 2;
+    const int hLabel = hMono;  // 余额标签也用 mono 档，比 small 大一档
 
+    // 余额数值：从大号字开始挑，放不下就退一档，再放不下退 mono。
+    // （18pt 下 "110.00" 104px、"1234.56" 123px 都还行，"99999.99" 142px 就得退）
     char value[40];
-    int y = colTop;
-
-    // —— 余额块 ——
     const char* balanceText;
     uint16_t balanceColor;
     if (vm.fetching && !vm.haveBalance) {
@@ -307,24 +337,43 @@ void Ui::composeMain(const ViewModel& vm) {
         balanceColor = kWarn;
     }
 
+    const lgfx::IFont* vf = F.value;
+    float vs = F.valueScale;
+    canvas_.setFont(vf);
+    canvas_.setTextSize(vs);
+    if ((int)canvas_.textWidth(balanceText) > kColW) {
+        vf = F.valueAlt;
+        vs = F.valueAltScale;
+        canvas_.setFont(vf);
+        canvas_.setTextSize(vs);
+        if ((int)canvas_.textWidth(balanceText) > kColW) {
+            vf = F.mono;
+            vs = 1.0f;
+            canvas_.setFont(vf);
+            canvas_.setTextSize(vs);
+        }
+    }
+    const int hValue = (int)canvas_.fontHeight();
+    canvas_.setTextSize(1.0f);
+
+    // 竖直方向：余额块 + 两行，剩余空间均分成两个间隙（两种语言都正好撑满一列）
+    const int hBlock = hLabel + hValue + 1;
+    int free = avail - (hBlock + hMono + hMono);
+    if (free < 6) free = 6;
+    const int gap = free / 2;
+    int y = colTop;
+
+    // —— 余额块：标签在左上，数值**右对齐**压在块的最下面一行 ——
     canvas_.setFont(F.mono);
     canvas_.setTextColor(kMuted);
     canvas_.setTextDatum(textdatum_t::top_left);
     canvas_.drawString(lang::t(lang::Str::Balance), kColX, y);
 
-    // 数值：大号字放不下（余额位数多）就退回 mono 档，宁可小一点也不要挤出去
-    canvas_.setFont(F.value);
-    canvas_.setTextSize(F.valueScale);
-    const lgfx::IFont* balanceFont = F.value;
-    float balanceScale = F.valueScale;
-    if ((int)canvas_.textWidth(balanceText) > kColW) {
-        balanceFont = F.mono;
-        balanceScale = 1.0f;
-    }
-    canvas_.setTextSize(balanceScale);
-    canvas_.setFont(balanceFont);
+    canvas_.setFont(vf);
+    canvas_.setTextSize(vs);
     canvas_.setTextColor(balanceColor);
-    canvas_.drawString(balanceText, kColX, y + hLabel + 1);
+    canvas_.setTextDatum(textdatum_t::top_right);
+    canvas_.drawString(balanceText, kColRight, y + hLabel + 1);
     canvas_.setTextSize(1.0f);
     y += hBlock + gap;
 

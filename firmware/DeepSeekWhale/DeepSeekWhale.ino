@@ -27,7 +27,7 @@
 #include "src/sound.h"
 #include "src/ui.h"
 
-#define APP_VERSION "1.2.2"
+#define APP_VERSION "1.3.0"
 
 // ============================ 全局状态 ============================
 static AppConfig g_cfg;
@@ -168,6 +168,18 @@ static void fillVm() {
 
     g_vm.peak = g_vm.nowUtc ? pricing::isPeakTime(g_vm.nowUtc) : false;
     g_vm.nextChangeAt = g_vm.nowUtc ? pricing::nextPeakChangeAt(g_vm.nowUtc) : 0;
+
+    // 设备电量（Cardputer ADV 走 ADC1 ch10 / 分压比 2.0）。读不到就 -1，界面不显示。
+    // ADC 读一次几毫秒，节流到 3 秒一次，避免数字乱跳。
+    static int32_t s_batt = -1;
+    static uint32_t s_battAt = 0;
+    const uint32_t nowMs = millis();
+    if (nowMs - s_battAt > 3000) {
+        s_battAt = nowMs;
+        s_batt = M5.Power.getBatteryLevel();
+    }
+    g_vm.batteryPercent = (s_batt >= 0 && s_batt <= 100) ? (int)s_batt : -1;
+    g_vm.batteryCharging = (M5.Power.isCharging() == m5::Power_Class::is_charging);
 
     g_vm.showSeconds = g_cfg.showSeconds;
     g_vm.sdReady = g_store.sdReady();

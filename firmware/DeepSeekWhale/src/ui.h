@@ -1,11 +1,12 @@
 // 界面层：一块 240x135 的 M5Canvas 离屏缓冲，整屏重绘后 pushSprite。
 // 布局（横屏 rotation=1）：
 //   ┌──────────────────────────────────────────┐
-//   │ 状态条: WiFi / 时钟 / 峰谷徽标            │  y 0..14
+//   │ 状态条: WiFi / 时钟 / 电量 / 峰谷徽标      │  y 0..14
 //   ├────────────┬─────────────────────────────┤
-//   │ 鲸鱼 96x96 │  BALANCE 大数字              │
-//   │            │  TODAY USED                  │
-//   │            │  PRICE TIER + 倒计时         │
+//   │ 鲸鱼 96x96 │  BALANCE                     │
+//   │            │        110.00（右对齐大号）   │
+//   │            │  TODAY           1.23        │
+//   │            │  PRICE TIER      2h 13m      │
 //   ├────────────┴─────────────────────────────┤
 //   │ 提示/错误行                               │  y 120..134
 //   └──────────────────────────────────────────┘
@@ -60,6 +61,10 @@ struct ViewModel {
     bool showSeconds = true;
     int bubbleCountdown = 0;  // >0 时气泡右下角显示自动关闭倒计时
 
+    // 设备电量（-1 = 读不到，不显示）
+    int batteryPercent = -1;
+    bool batteryCharging = false;
+
     // 系统
     bool sdReady = false;
     std::string sdStatus;
@@ -102,6 +107,7 @@ private:
     // 否则一帧推两次屏（先无气泡再有气泡）就会闪。
     void composeMain(const ViewModel& vm);
     void drawToastPanel();  // 只画进 canvas，不推屏
+    void batteryIcon(int x, int y, int w, int h, int pct, bool charging, uint16_t color);
     void statusBar(const ViewModel& vm, const char* rightBadge, uint16_t badgeColor);
     void footer(const char* text, uint16_t color);
     void panel(int x, int y, int w, int h, uint16_t fill, uint16_t border);

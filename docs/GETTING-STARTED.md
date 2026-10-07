@@ -115,6 +115,8 @@ arduino-cli upload  --fqbn "esp32:esp32:m5stack_cardputer:PSRAM=enabled,Partitio
 顺序是：挂载 SD → 读配置 → 连 WiFi（最多 15 秒）→ NTP 对时（最多 12 秒）→ 拉一次余额 → 主界面。
 
 - 屏幕左上是 WiFi 圆点：绿=已连，橙=在连，红=没配对
+- 中间是北京时间
+- 时钟右边是**设备电量**（百分比 + 电量图标；`<15%` 红、`≤40%` 橙、正常绿）
 - 右上徽标 `PEAK` / `OFF-PEAK` / `SYNC TIME`
 - 主屏右下是当前档位的**下一切换倒计时**
 
